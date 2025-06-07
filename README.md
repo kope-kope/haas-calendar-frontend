@@ -1,3 +1,92 @@
+# Berkeley Haas Calendar Converter
+
+A web application that helps Berkeley Haas students convert their course schedules into calendar events.
+
+## Features
+
+- Upload course schedule images
+- Extract course information using OCR
+- Edit and verify extracted course details
+- Generate calendar events with proper dates and times
+- Export to Google Calendar or download as ICS file
+
+## Local Development
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/berkeley-haas-calendar.git
+cd berkeley-haas-calendar
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+npm start
+```
+
+The application will be available at `http://localhost:3000`.
+
+## Deployment
+
+### Deploying to Vercel
+
+1. Create a Vercel account at https://vercel.com if you don't have one.
+
+2. Install Vercel CLI:
+```bash
+npm install -g vercel
+```
+
+3. Deploy the application:
+```bash
+vercel
+```
+
+4. Follow the prompts to complete the deployment.
+
+### Deploying to GitHub Pages
+
+1. Add the following to your `package.json`:
+```json
+{
+  "homepage": "https://yourusername.github.io/berkeley-haas-calendar",
+  "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
+  }
+}
+```
+
+2. Install gh-pages:
+```bash
+npm install --save-dev gh-pages
+```
+
+3. Deploy:
+```bash
+npm run deploy
+```
+
+## Environment Variables
+
+No environment variables are required for basic functionality.
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
