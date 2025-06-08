@@ -3,6 +3,9 @@ import { User, CalendarDays } from 'lucide-react';
 import './App.css';
 import courseData from './courseData';
 
+// Add this at the top of the file, after the imports
+const API_URL = process.env.REACT_APP_API_URL;
+
 // --- Utility Functions ---
 const courseDatabase = {};
 
@@ -385,7 +388,7 @@ export default function ScheduleConverter() {
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const response = await fetch('http://localhost:3001/api/extract-table', {
+      const response = await fetch(`${API_URL}/api/extract-table`, {
         method: 'POST',
         body: formData,
       });
