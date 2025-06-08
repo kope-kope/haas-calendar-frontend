@@ -365,3 +365,21 @@
   color: #4B5563;
   margin-top: 2px;
 }
+
+.example-label {
+  font-size: 0.9rem;
+  color: #4a5568;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.example-schedule-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem auto;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

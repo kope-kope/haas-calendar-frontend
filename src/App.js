@@ -596,8 +596,12 @@ export default function ScheduleConverter() {
     <div className="step-container">
       <div className="header">
         <h1>Berkeley Haas Schedule Converter</h1>
-        <p>Upload your course schedule to convert it to calendar format</p>
+        <p>Take a screenshot of your schedule from OLR and upload here</p>
       </div>
+
+      <p className="example-label">Example screenshot:</p>
+      <img src="/images/schedule_example.png" alt="Example of a course schedule screenshot from OLR" className="example-schedule-img" aria-label="Example course schedule screenshot to upload" />
+
       <div className="upload-section" onClick={() => document.getElementById('fileInput').click()}>
         <span className="upload-icon">📤</span>
         <h2>Upload Your Schedule</h2>
