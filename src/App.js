@@ -596,7 +596,14 @@ export default function ScheduleConverter() {
     <div className="step-container">
       <div className="header">
         <h1>Berkeley Haas Schedule Converter</h1>
-        <p>Take a screenshot of your schedule from OLR and upload here</p>
+        <a
+          href="https://olr.haas.berkeley.edu/Student/MySchedule"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="olr-link"
+        >
+          Take a screenshot of your schedule from OLR and upload here
+        </a>
       </div>
 
       <p className="example-label">Example screenshot:</p>
