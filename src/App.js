@@ -9,6 +9,42 @@ const API_URL = process.env.REACT_APP_API_URL;
 // --- Utility Functions ---
 const courseDatabase = {};
 
+// Helper function to create dates in Pacific Time
+const createDateInPT = (dateString, hours = 0, minutes = 0) => {
+  // Create date in Pacific Time
+  const date = new Date(dateString + 'T00:00:00');
+  
+  // Use the browser's timezone conversion to get Pacific Time
+  // This automatically handles PST/PDT transitions
+  const pacificTime = new Date(date.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  
+  // Create a new date with the Pacific Time components
+  const ptDate = new Date();
+  ptDate.setFullYear(pacificTime.getFullYear());
+  ptDate.setMonth(pacificTime.getMonth());
+  ptDate.setDate(pacificTime.getDate());
+  ptDate.setHours(hours, minutes, 0, 0);
+  
+  // Convert to UTC while preserving the Pacific Time
+  const utcDate = new Date(ptDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  
+  return utcDate;
+};
+
+// Helper function to format date for Google Calendar (in PT)
+const formatGoogleDateInPT = (date) => {
+  // Convert the date to Pacific Time and format for Google Calendar
+  const pacificTime = new Date(date.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  return pacificTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+};
+
+// Helper function to format date for ICS file (in PT)
+const formatICSDateInPT = (date) => {
+  // Convert the date to Pacific Time and format for ICS
+  const pacificTime = new Date(date.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  return pacificTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+};
+
 // Load course data from JSON
 const loadCourseDatabase = () => {
   try {
@@ -329,7 +365,7 @@ const EventPreview = ({ events, generateGoogleCalendarURL }) => {
             <h3 className="course-title">{event.courseNo} - {event.title}</h3>
             <p className="course-details">
               <User size={16} /> {event.instructor}<br />
-              <CalendarDays size={16} /> {event.day}s, {event.start.toLocaleTimeString()} - {event.end.toLocaleTimeString()}<br />
+              <CalendarDays size={16} /> {event.day}s, {event.start.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} - {event.end.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} PT<br />
               📍 {event.location}<br />
               <span className="text-sm text-gray-500">
                 Course runs from {formatDate(event.startDate)} to {formatDate(event.endDate)}
@@ -490,11 +526,17 @@ export default function ScheduleConverter() {
             const firstOccurrence = new Date(termStart);
             firstOccurrence.setDate(termStart.getDate() + daysToAdd);
             
-            const startDateTime = new Date(firstOccurrence);
-            const endDateTime = new Date(firstOccurrence);
-            
-            startDateTime.setHours(start.hours, start.minutes, 0, 0);
-            endDateTime.setHours(end.hours, end.minutes, 0, 0);
+            // Create dates in Pacific Time
+            const startDateTime = createDateInPT(
+              firstOccurrence.toISOString().split('T')[0], 
+              start.hours, 
+              start.minutes
+            );
+            const endDateTime = createDateInPT(
+              firstOccurrence.toISOString().split('T')[0], 
+              end.hours, 
+              end.minutes
+            );
             
             const event = {
               id: `${course.courseNo}-${day}`,
@@ -504,7 +546,7 @@ export default function ScheduleConverter() {
               location: course.location,
               start: startDateTime,
               end: endDateTime,
-              recurrence: { frequency: 'WEEKLY', until: new Date(course.endDate) },
+              recurrence: { frequency: 'WEEKLY', until: createDateInPT(course.endDate) },
               day,
               startDate: course.startDate,
               endDate: course.endDate
@@ -545,15 +587,14 @@ export default function ScheduleConverter() {
   };
 
   const generateGoogleCalendarURL = (event) => {
-    const formatGoogleDate = (date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const baseURL = 'https://calendar.google.com/calendar/render';
     const params = new URLSearchParams({
       action: 'TEMPLATE',
       text: `${event.courseNo} - ${event.title}`,
       details: `Instructor: ${event.instructor}\nCourse: ${event.courseNo}\nDates: ${event.startDate} to ${event.endDate}`,
       location: event.location,
-      dates: `${formatGoogleDate(event.start)}/${formatGoogleDate(event.end)}`,
-      recur: `RRULE:FREQ=WEEKLY;UNTIL=${formatGoogleDate(event.recurrence.until)}`
+      dates: `${formatGoogleDateInPT(event.start)}/${formatGoogleDateInPT(event.end)}`,
+      recur: `RRULE:FREQ=WEEKLY;UNTIL=${formatGoogleDateInPT(event.recurrence.until)}`
     });
     return `${baseURL}?${params.toString()}`;
   };
@@ -563,7 +604,6 @@ export default function ScheduleConverter() {
       'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MBA Course Schedule Converter//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'
     ];
     calendarEvents.forEach(event => {
-      const formatICSDate = (date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
       const getDayAbbreviation = (day) => {
         const dayMap = { 'Sunday': 'SU', 'Monday': 'MO', 'Tuesday': 'TU', 'Wednesday': 'WE', 'Thursday': 'TH', 'Friday': 'FR', 'Saturday': 'SA' };
         return dayMap[day] || day.substring(0, 2).toUpperCase();
@@ -574,9 +614,9 @@ export default function ScheduleConverter() {
         `SUMMARY:${event.courseNo} - ${event.title}`,
         `DESCRIPTION:Instructor: ${event.instructor}\\nCourse: ${event.courseNo}\\nDates: ${event.startDate} to ${event.endDate}`,
         `LOCATION:${event.location}`,
-        `DTSTART:${formatICSDate(event.start)}`,
-        `DTEND:${formatICSDate(event.end)}`,
-        `RRULE:FREQ=WEEKLY;UNTIL=${formatICSDate(event.recurrence.until)};BYDAY=${getDayAbbreviation(event.day)}`,
+        `DTSTART:${formatICSDateInPT(event.start)}`,
+        `DTEND:${formatICSDateInPT(event.end)}`,
+        `RRULE:FREQ=WEEKLY;UNTIL=${formatICSDateInPT(event.recurrence.until)};BYDAY=${getDayAbbreviation(event.day)}`,
         'SEQUENCE:0', 'STATUS:CONFIRMED', 'TRANSP:OPAQUE', 'END:VEVENT'
       ]);
     });
@@ -649,6 +689,7 @@ export default function ScheduleConverter() {
       <div className="header">
         <h1>Calendar Generated!</h1>
         <p>Your calendar events are ready to be added to your calendar</p>
+        <p className="timezone-notice">🕐 All times are in Pacific Time (PT)</p>
       </div>
       <EventPreview events={calendarEvents} generateGoogleCalendarURL={generateGoogleCalendarURL} />
       <div className="download-all-section">
