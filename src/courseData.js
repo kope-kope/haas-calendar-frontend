@@ -792,6 +792,19 @@ const courseData = {
     "capacity": "29",
     "filled": "29",
     "available": "0"
+  },
+  "MBA210B.1": {
+    "title": "International Business Development for MBAs IP course",
+    "units": "1.0",
+    "instructor": "Hirschler, W.; Hopelain, J.",
+    "startDate": "2025-09-12",
+    "endDate": "2025-09-12",
+    "days": "F",
+    "time": "9:00AM-12:00PM",
+    "location": "N3OO Chou",
+    "capacity": "100",
+    "filled": "0",
+    "available": "100"
   }
 };
 

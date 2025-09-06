@@ -45,31 +45,35 @@ const formatICSDateInPT = (date) => {
   return pacificTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 };
 
-// Load course data from JSON
-const loadCourseDatabase = () => {
+// Load course data from CSV (with JSON fallback)
+const loadCourseDatabase = async () => {
   try {
     console.log('=== LOADING COURSE DATABASE ===');
     
-    // Clear existing database
-    Object.keys(courseDatabase).forEach(key => delete courseDatabase[key]);
-    
-    // Copy all course data to the database
-    Object.assign(courseDatabase, courseData);
-    
-    console.log('=== COURSE DATABASE LOADED ===');
-    console.log('Total courses loaded:', Object.keys(courseDatabase).length);
+    // Try to load from CSV first
+    try {
+      await loadCourseDatabaseFromCSV();
+      console.log('Successfully loaded course data from CSV');
+    } catch (csvError) {
+      console.warn('Failed to load CSV, falling back to static JSON data:', csvError);
+      
+      // Clear existing database
+      Object.keys(courseDatabase).forEach(key => delete courseDatabase[key]);
+      
+      // Copy all course data to the database from static JSON
+      Object.assign(courseDatabase, courseData);
+      
+      console.log('=== COURSE DATABASE LOADED FROM JSON FALLBACK ===');
+      console.log('Total courses loaded:', Object.keys(courseDatabase).length);
+    }
     
     // Verify database integrity
-    const testCourse = 'MBA299M.1';
+    const testCourse = 'MBA210B.1';
     const testResult = getCourseInfo(testCourse);
     console.log('Database verification:', {
       course: testCourse,
       result: testResult,
-      expected: {
-        location: 'N470 Chou',
-        startDate: '2025-08-24',
-        endDate: '2025-12-07'
-      }
+      found: !!courseDatabase[testCourse]
     });
     
   } catch (error) {
@@ -222,9 +226,98 @@ const processOCRText = (text) => {
   return parsedCourses;
 };
 
-// Placeholder for loading CSV database (to be implemented)
-const loadCourseDatabaseFromCSV = (csvData) => {
-  // TODO: Parse CSV and update courseDatabase
+// Parse CSV data and convert to JSON format
+const parseCSVToJSON = (csvText) => {
+  const lines = csvText.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim());
+  
+  const courses = {};
+  
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue; // Skip empty lines
+    
+    // Parse CSV line, handling quoted fields
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim()); // Add the last value
+    
+    if (values.length >= headers.length) {
+      const courseNo = values[0];
+      const course = {
+        title: values[1],
+        units: values[2],
+        instructor: values[3],
+        startDate: values[4],
+        endDate: values[5],
+        days: values[6],
+        time: values[7],
+        notes: values[8] || '',
+        location: values[9],
+        capacity: values[10],
+        filled: values[11],
+        available: values[12]
+      };
+      
+      courses[courseNo] = course;
+    }
+  }
+  
+  return courses;
+};
+
+// Load course data from CSV
+const loadCourseDatabaseFromCSV = async () => {
+  try {
+    console.log('=== LOADING COURSE DATABASE FROM CSV ===');
+    
+    const response = await fetch('/data/courses.csv');
+    if (!response.ok) {
+      throw new Error(`Failed to load CSV: ${response.status}`);
+    }
+    
+    const csvText = await response.text();
+    const csvCourses = parseCSVToJSON(csvText);
+    
+    // Clear existing database
+    Object.keys(courseDatabase).forEach(key => delete courseDatabase[key]);
+    
+    // Load CSV data into database
+    Object.assign(courseDatabase, csvCourses);
+    
+    console.log('=== COURSE DATABASE LOADED FROM CSV ===');
+    console.log('Total courses loaded:', Object.keys(courseDatabase).length);
+    
+    // Verify database integrity
+    const testCourse = 'MBA210B.1';
+    const testResult = getCourseInfo(testCourse);
+    console.log('Database verification:', {
+      course: testCourse,
+      result: testResult,
+      found: !!courseDatabase[testCourse]
+    });
+    
+    return csvCourses;
+  } catch (error) {
+    console.error('CSV LOAD ERROR:', error);
+    // Fallback to static JSON data
+    console.log('Falling back to static course data...');
+    Object.assign(courseDatabase, courseData);
+    throw error;
+  }
 };
 
 // Convert military time string (HH:MM-HH:MM) to 12-hour format (HH:MM AM/PM - HH:MM AM/PM)
