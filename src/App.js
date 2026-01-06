@@ -1,828 +1,936 @@
-import React, { useState, useEffect } from 'react';
-import { User, CalendarDays } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './App.css';
-import courseData from './courseData';
 
-// Add this at the top of the file, after the imports
-const API_URL = process.env.REACT_APP_API_URL;
+// API URL from environment
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-// --- Utility Functions ---
-const courseDatabase = {};
-
-// Helper function to create dates in Pacific Time
-const createDateInPT = (dateString, hours = 0, minutes = 0) => {
-  // Create date in Pacific Time
-  const date = new Date(dateString + 'T00:00:00');
-  
-  // Use the browser's timezone conversion to get Pacific Time
-  // This automatically handles PST/PDT transitions
-  const pacificTime = new Date(date.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  
-  // Create a new date with the Pacific Time components
-  const ptDate = new Date();
-  ptDate.setFullYear(pacificTime.getFullYear());
-  ptDate.setMonth(pacificTime.getMonth());
-  ptDate.setDate(pacificTime.getDate());
-  ptDate.setHours(hours, minutes, 0, 0);
-  
-  // Convert to UTC while preserving the Pacific Time
-  const utcDate = new Date(ptDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  
-  return utcDate;
+// ============================================
+// Icons (inline SVGs for minimalism)
+// ============================================
+const Icons = {
+  Calendar: () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  ),
+  Upload: () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  ),
+  Check: () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  User: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  Clock: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  MapPin: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  ),
+  Download: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  ),
+  ArrowLeft: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12" />
+      <polyline points="12 19 5 12 12 5" />
+    </svg>
+  ),
+  ArrowRight: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  ),
+  AlertCircle: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  ),
+  Loader: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spin">
+      <line x1="12" y1="2" x2="12" y2="6" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+      <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+      <line x1="2" y1="12" x2="6" y2="12" />
+      <line x1="18" y1="12" x2="22" y2="12" />
+      <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+      <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+    </svg>
+  ),
 };
 
-// Helper function to format date for Google Calendar (in PT)
-const formatGoogleDateInPT = (date) => {
-  // Convert the date to Pacific Time and format for Google Calendar
-  const pacificTime = new Date(date.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  return pacificTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-};
+const GoogleIcon = () => (
+  <svg className="google-icon" viewBox="0 0 24 24" width="18" height="18">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+);
 
-// Helper function to format date for ICS file (in PT)
-const formatICSDateInPT = (date) => {
-  // Convert the date to Pacific Time and format for ICS
-  const pacificTime = new Date(date.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  return pacificTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-};
+// ============================================
+// Constants
+// ============================================
+const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// Load course data from CSV (with JSON fallback)
-const loadCourseDatabase = async () => {
-  try {
-    console.log('=== LOADING COURSE DATABASE ===');
-    
-    // Try to load from CSV first
-    try {
-      await loadCourseDatabaseFromCSV();
-      console.log('Successfully loaded course data from CSV');
-    } catch (csvError) {
-      console.warn('Failed to load CSV, falling back to static JSON data:', csvError);
-      
-      // Clear existing database
-      Object.keys(courseDatabase).forEach(key => delete courseDatabase[key]);
-      
-      // Copy all course data to the database from static JSON
-      Object.assign(courseDatabase, courseData);
-      
-      console.log('=== COURSE DATABASE LOADED FROM JSON FALLBACK ===');
-      console.log('Total courses loaded:', Object.keys(courseDatabase).length);
-    }
-    
-    // Verify database integrity
-    const testCourse = 'MBA210B.1';
-    const testResult = getCourseInfo(testCourse);
-    console.log('Database verification:', {
-      course: testCourse,
-      result: testResult,
-      found: !!courseDatabase[testCourse]
-    });
-    
-  } catch (error) {
-    console.error('DATABASE LOAD ERROR:', error);
-    throw error; // Re-throw to handle in the component
-  }
-};
+// Days Multi-Select Component
+const DaysMultiSelect = ({ selectedDays, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
 
-const getCourseInfo = (courseNo) => {
-  if (!courseNo) {
-    console.log('No course number provided, using defaults');
-    return { 
-      location: 'Room TBD', 
-      startDate: '2025-08-28', 
-      endDate: '2025-12-05' 
-    };
-  }
-
-  // Clean up the course number (remove any extra spaces)
-  const cleanCourseNo = courseNo.trim();
-  console.log('Looking up course info for:', cleanCourseNo);
-  
-  // First try exact match
-  if (courseDatabase[cleanCourseNo]) {
-    const course = courseDatabase[cleanCourseNo];
-    console.log('Found exact match:', course);
-    return {
-      location: course.location || 'Room TBD',
-      startDate: course.startDate || '2025-08-28',
-      endDate: course.endDate || '2025-12-05'
-    };
-  }
-
-  // Try matching without section number (e.g., MBA212A.1 -> MBA212A)
-  const baseCourseNo = cleanCourseNo.split('.')[0];
-  if (courseDatabase[baseCourseNo]) {
-    const course = courseDatabase[baseCourseNo];
-    console.log('Found match without section:', course);
-    return {
-      location: course.location || 'Room TBD',
-      startDate: course.startDate || '2025-08-28',
-      endDate: course.endDate || '2025-12-05'
-    };
-  }
-
-  // Try matching just the prefix (e.g., MBA212A.1 -> MBA212)
-  const coursePrefix = cleanCourseNo.match(/^MBA\d{3}[A-Z]?/)?.[0];
-  if (coursePrefix) {
-    const matchingCourses = Object.keys(courseDatabase)
-      .filter(key => key.startsWith(coursePrefix));
-    
-    if (matchingCourses.length > 0) {
-      const course = courseDatabase[matchingCourses[0]];
-      console.log('Found match by prefix:', course);
-      return {
-        location: course.location || 'Room TBD',
-        startDate: course.startDate || '2025-08-28',
-        endDate: course.endDate || '2025-12-05'
-      };
-    }
-  }
-
-  console.log('No course info found for', cleanCourseNo, 'using defaults');
-  return { 
-    location: 'Room TBD', 
-    startDate: '2025-08-28', 
-    endDate: '2025-12-05' 
-  };
-};
-
-// Parse day abbreviations into full day names, or handle array of full names
-const parseDays = (dayCodeOrArray) => {
-  if (Array.isArray(dayCodeOrArray)) {
-    // Assume it's already an array of full day names from backend
-    return dayCodeOrArray;
-  }
-
-  // Handle string abbreviations (for manual edits or older OCR)
-  if (typeof dayCodeOrArray !== 'string') return [];
-
-  const dayMap = {
-    'M': ['Monday'], 'T': ['Tuesday'], 'W': ['Wednesday'], 'Th': ['Thursday'], 'F': ['Friday'],
-    'Sa': ['Saturday'], 'Su': ['Sunday'], 'TTh': ['Tuesday', 'Thursday'], 'MW': ['Monday', 'Wednesday'], 'MWF': ['Monday', 'Wednesday', 'Friday']
-  };
-
-  if (dayMap[dayCodeOrArray]) return dayMap[dayCodeOrArray];
-
-  const days = [];
-  let i = 0;
-  while (i < dayCodeOrArray.length) {
-    if (i + 1 < dayCodeOrArray.length && dayCodeOrArray.substring(i, i + 2) === 'Th') { days.push('Thursday'); i += 2; }
-    else {
-      const char = dayCodeOrArray[i];
-      if (char === 'M') days.push('Monday');
-      else if (char === 'T') days.push('Tuesday');
-      else if (char === 'W') days.push('Wednesday');
-      else if (char === 'F') days.push('Friday');
-      else if (char === 'S' && i + 1 < dayCodeOrArray.length && dayCodeOrArray[i+1] === 'a') { days.push('Saturday'); i++; }
-      else if (char === 'S' && i + 1 < dayCodeOrArray.length && dayCodeOrArray[i+1] === 'u') { days.push('Sunday'); i++; }
-      i++;
-    }
-  }
-  return days;
-};
-
-const parseTimeRange = (timeRange) => {
-  if (!timeRange) return { startTime: '09:00 AM', endTime: '10:00 AM' };
-  const times = timeRange.split(' - ').map(time => time.trim());
-  return { startTime: times[0] || '09:00 AM', endTime: times[1] || '10:00 AM' };
-};
-
-const parseTime = (timeStr) => {
-  if (!timeStr) return { hours: 9, minutes: 0 };
-  try {
-    const [time, period] = timeStr.split(' ');
-    if (!time || !period) return { hours: 9, minutes: 0 };
-    let [hours, minutes] = time.split(':').map(Number);
-    if (isNaN(hours) || isNaN(minutes)) return { hours: 9, minutes: 0 };
-    if (period === 'PM' && hours !== 12) hours += 12;
-    else if (period === 'AM' && hours === 12) hours = 0;
-    return { hours, minutes };
-  } catch {
-    return { hours: 9, minutes: 0 };
-  }
-};
-
-const processOCRText = (text) => {
-  const lines = text.split('\n').map(line => line.trim()).filter(line => line);
-  const parsedCourses = [];
-  const headerKeywords = [
-    'Course No', 'Course Title', 'Instructor', 'Days', 'Times', 'Fall', 'Spring', 'Summer', 'Winter', '20', 'Schedule', 'Section'
-  ];
-  const rowRegex = /^(MBA\d{3}[A-Z]?\.\d{1,2}[A-Z]?)\s+(.+?)\s{2,}([\w.,\s]+)\s{1,}(M|T|W|Th|F|Sa|Su|TTh|MW|MWF)\s{1,}((?:\d{1,2}:\d{2}\s*(?:AM|PM)\s*-\s*\d{1,2}:\d{2}\s*(?:AM|PM)))/i;
-  lines.forEach(line => {
-    if (headerKeywords.some(keyword => line.includes(keyword))) return;
-    const match = line.match(rowRegex);
-    if (match) {
-      parsedCourses.push({
-        courseNo: match[1], courseTitle: match[2].trim(), instructor: match[3].trim(), days: match[4].trim(), times: match[5].trim()
-      });
-    } else {
-      const chunks = line.split(/\s{2,}|\t+/).map(c => c.trim()).filter(Boolean);
-      if (chunks.length >= 5) {
-        parsedCourses.push({
-          courseNo: chunks[0], courseTitle: chunks[1], instructor: chunks[2], days: chunks[3], times: chunks[4]
-        });
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
       }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  });
-  return parsedCourses;
-};
+  }, [isOpen]);
 
-// Parse CSV data and convert to JSON format
-const parseCSVToJSON = (csvText) => {
-  const lines = csvText.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim());
-  
-  const courses = {};
-  
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue; // Skip empty lines
-    
-    // Parse CSV line, handling quoted fields
-    const values = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let j = 0; j < line.length; j++) {
-      const char = line[j];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim()); // Add the last value
-    
-    if (values.length >= headers.length) {
-      const courseNo = values[0];
-      const course = {
-        title: values[1],
-        units: values[2],
-        instructor: values[3],
-        startDate: values[4],
-        endDate: values[5],
-        days: values[6],
-        time: values[7],
-        notes: values[8] || '',
-        location: values[9],
-        capacity: values[10],
-        filled: values[11],
-        available: values[12]
-      };
-      
-      courses[courseNo] = course;
-    }
-  }
-  
-  return courses;
-};
-
-// Load course data from CSV
-const loadCourseDatabaseFromCSV = async () => {
-  try {
-    console.log('=== LOADING COURSE DATABASE FROM CSV ===');
-    
-    const response = await fetch('/data/courses.csv');
-    if (!response.ok) {
-      throw new Error(`Failed to load CSV: ${response.status}`);
-    }
-    
-    const csvText = await response.text();
-    const csvCourses = parseCSVToJSON(csvText);
-    
-    // Clear existing database
-    Object.keys(courseDatabase).forEach(key => delete courseDatabase[key]);
-    
-    // Load CSV data into database
-    Object.assign(courseDatabase, csvCourses);
-    
-    console.log('=== COURSE DATABASE LOADED FROM CSV ===');
-    console.log('Total courses loaded:', Object.keys(courseDatabase).length);
-    
-    // Verify database integrity
-    const testCourse = 'MBA210B.1';
-    const testResult = getCourseInfo(testCourse);
-    console.log('Database verification:', {
-      course: testCourse,
-      result: testResult,
-      found: !!courseDatabase[testCourse]
-    });
-    
-    return csvCourses;
-  } catch (error) {
-    console.error('CSV LOAD ERROR:', error);
-    // Fallback to static JSON data
-    console.log('Falling back to static course data...');
-    Object.assign(courseDatabase, courseData);
-    throw error;
-  }
-};
-
-// Convert military time string (HH:MM-HH:MM) to 12-hour format (HH:MM AM/PM - HH:MM AM/PM)
-const convertMilitaryTo12Hour = (militaryTime) => {
-  if (!militaryTime || typeof militaryTime !== 'string') return '09:00 AM - 10:00 AM'; // Default
-  const [startMil, endMil] = militaryTime.split('-');
-
-  const formatTime = (mil) => {
-    const [hoursStr, minutes] = mil.split(':');
-    let hours = parseInt(hoursStr, 10);
-    if (isNaN(hours) || isNaN(parseInt(minutes, 10))) return null;
-
-    const period = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
-    const paddedMinutes = minutes.padStart(2, '0');
-    return `${hours}:${paddedMinutes} ${period}`;
+  const toggleDay = (day) => {
+    const newSelected = selectedDays.includes(day)
+      ? selectedDays.filter(d => d !== day)
+      : [...selectedDays, day].sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b));
+    onChange(newSelected);
   };
 
-  const startTime = formatTime(startMil);
-  const endTime = formatTime(endMil);
-
-  if (!startTime || !endTime) return '09:00 AM - 10:00 AM'; // Default if parsing fails
-
-  return `${startTime} - ${endTime}`;
-};
-
-// --- Validation helpers ---
-const validateCourseCode = code => /^MBA\d{3}[A-Z]?\.\d{1,2}[A-Z]?$/.test(code);
-const validateTime = time => /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM) - (0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/.test(time);
-const validDayCodes = ['M','T','W','Th','F','Sa','Su','TTh','MW','MWF'];
-const validDayCodeOrNames = ['M','T','W','Th','F','Sa','Su','TTh','MW','MWF', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const validateDays = (days) => {
-  if (Array.isArray(days)) {
-    // Check if array contains valid full day names
-    const validFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    return days.every(day => typeof day === 'string' && validFullNames.includes(day));
-  }
-  // Fallback for string abbreviations
-  return typeof days === 'string' && validDayCodes.includes(days.trim());
-};
-
-// --- Editable Table Component ---
-function EditableCourseTable({ courses, onChange, validation, originalCourses }) {
-  const handleFieldChange = (idx, field, value) => {
-    const updated = courses.map((c, i) => i === idx ? { ...c, [field]: value } : c);
-    onChange(updated);
-  };
+  const displayText = selectedDays.length > 0 
+    ? selectedDays.join(', ') 
+    : 'Select days...';
 
   return (
-    <div className="course-list">
-      <h2>Review & Edit Extracted Courses</h2>
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
-        <thead>
-          <tr>
-            <th>Course No</th>
-            <th>Title</th>
-            <th>Instructor</th>
-            <th>Days</th>
-            <th>Times</th>
-          </tr>
-        </thead>
-        <tbody>
-          {courses.map((course, idx) => (
-            <tr key={idx}>
-              <td>
-                <input
-                  value={course.courseNo}
-                  onChange={e => handleFieldChange(idx, 'courseNo', e.target.value)}
-                  className={
-                    (course.courseNo !== originalCourses[idx]?.courseNo ? 'edited-field ' : '') +
-                    (!validateCourseCode(course.courseNo) ? 'invalid-field' : '')
-                  }
-                />
-              </td>
-              <td>
-                <input
-                  value={course.courseTitle}
-                  onChange={e => handleFieldChange(idx, 'courseTitle', e.target.value)}
-                  className={course.courseTitle !== originalCourses[idx]?.courseTitle ? 'edited-field' : ''}
-                />
-              </td>
-              <td>
-                <input
-                  value={course.instructor}
-                  onChange={e => handleFieldChange(idx, 'instructor', e.target.value)}
-                  className={course.instructor !== originalCourses[idx]?.instructor ? 'edited-field' : ''}
-                />
-              </td>
-              <td>
-                <input
-                  value={Array.isArray(course.days) ? course.days.join(', ') : course.days}
-                  onChange={e => handleFieldChange(idx, 'days', e.target.value.split(',').map(d => d.trim()))}
-                  className={
-                    (Array.isArray(course.days) && Array.isArray(originalCourses[idx]?.days) && JSON.stringify(course.days) !== JSON.stringify(originalCourses[idx]?.days) ? 'edited-field ' : '') +
-                    (!validateDays(course.days) ? 'invalid-field' : '')
-                  }
-                />
-              </td>
-              <td>
-                <input
-                  value={course.times}
-                  onChange={e => handleFieldChange(idx, 'times', e.target.value)}
-                  className={
-                    (course.times !== originalCourses[idx]?.times ? 'edited-field ' : '') +
-                    (!validateTime(course.times) ? 'invalid-field' : '')
-                  }
-                />
-              </td>
-            </tr>
+    <div className="days-multiselect" ref={containerRef}>
+      <button
+        type="button"
+        className="days-multiselect-trigger"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className={selectedDays.length === 0 ? 'placeholder' : ''}>
+          {displayText}
+        </span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d={isOpen ? "M3 9 L6 6 L9 9" : "M3 3 L6 6 L9 3"} />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="days-multiselect-dropdown">
+          {DAYS_OF_WEEK.map(day => (
+            <label key={day} className="days-multiselect-option">
+              <input
+                type="checkbox"
+                checked={selectedDays.includes(day)}
+                onChange={() => toggleDay(day)}
+              />
+              <span>{day}</span>
+            </label>
           ))}
-        </tbody>
-      </table>
-      <div style={{ marginTop: '1rem', color: '#e53e3e' }}>{validation.error}</div>
-    </div>
-  );
-}
-
-// --- UI Components ---
-const EventPreview = ({ events, generateGoogleCalendarURL }) => {
-  // Helper function to format date
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  return (
-    <div className="calendar-preview">
-      <h2>Preview of Events</h2>
-      {events.length === 0 && <div>No events generated. Please check your course data.</div>}
-      {events.map((event, index) => (
-        <div key={index} className="course-item">
-          <div className="course-info">
-            <h3 className="course-title">{event.courseNo} - {event.title}</h3>
-            <p className="course-details">
-              <User size={16} /> {event.instructor}<br />
-              <CalendarDays size={16} /> {event.day}s, {event.start.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} - {event.end.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} PT<br />
-              📍 {event.location}<br />
-              <span className="text-sm text-gray-500">
-                Course runs from {formatDate(event.startDate)} to {formatDate(event.endDate)}
-              </span>
-            </p>
-          </div>
-          <div className="calendar-actions">
-            <a
-              href={generateGoogleCalendarURL(event)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="button button-secondary"
-            >
-              Add to Google Calendar
-            </a>
-          </div>
         </div>
-      ))}
+      )}
     </div>
   );
 };
 
-// --- Main App ---
-export default function ScheduleConverter() {
-  const [step, setStep] = useState(1);
+// ============================================
+// Mock Data for Demo Mode (11 courses for edge case testing)
+// ============================================
+const MOCK_COURSES = [
+  { courseNo: 'MBA201A.1', courseTitle: 'Microeconomics', instructor: 'Prof. Smith', days: ['Monday', 'Wednesday'], times: '9:00 AM - 10:30 AM', startTime: '9:00 AM', endTime: '10:30 AM', location: 'Chou Hall C125', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA202A.1', courseTitle: 'Leadership', instructor: 'Prof. Johnson', days: ['Tuesday', 'Thursday'], times: '11:00 AM - 12:30 PM', startTime: '11:00 AM', endTime: '12:30 PM', location: 'Chou Hall C220', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA203A.1', courseTitle: 'Finance', instructor: 'Prof. Williams', days: ['Monday', 'Wednesday'], times: '2:00 PM - 3:30 PM', startTime: '2:00 PM', endTime: '3:30 PM', location: 'Chou Hall C320', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA204A.1', courseTitle: 'Marketing Strategy', instructor: 'Prof. Davis', days: ['Monday', 'Wednesday', 'Friday'], times: '10:00 AM - 11:00 AM', startTime: '10:00 AM', endTime: '11:00 AM', location: 'Chou Hall C410', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA205A.1', courseTitle: 'Operations Management', instructor: 'Prof. Brown', days: ['Tuesday', 'Thursday'], times: '1:00 PM - 2:30 PM', startTime: '1:00 PM', endTime: '2:30 PM', location: 'Chou Hall C510', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA206A.1', courseTitle: 'Data Analytics', instructor: 'Prof. Miller', days: ['Monday', 'Wednesday'], times: '3:00 PM - 4:30 PM', startTime: '3:00 PM', endTime: '4:30 PM', location: 'Chou Hall C210', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA207A.1', courseTitle: 'Strategic Management', instructor: 'Prof. Wilson', days: ['Tuesday', 'Thursday'], times: '9:30 AM - 11:00 AM', startTime: '9:30 AM', endTime: '11:00 AM', location: 'Chou Hall C330', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA208A.1', courseTitle: 'Entrepreneurship', instructor: 'Prof. Moore', days: ['Friday'], times: '2:00 PM - 5:00 PM', startTime: '2:00 PM', endTime: '5:00 PM', location: 'Chou Hall C440', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA209A.1', courseTitle: 'Organizational Behavior', instructor: 'Prof. Taylor', days: ['Monday', 'Wednesday'], times: '11:00 AM - 12:30 PM', startTime: '11:00 AM', endTime: '12:30 PM', location: 'Chou Hall C550', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA210A.1', courseTitle: 'Business Ethics', instructor: 'Prof. Anderson', days: ['Thursday'], times: '4:00 PM - 6:00 PM', startTime: '4:00 PM', endTime: '6:00 PM', location: 'Chou Hall C120', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+  { courseNo: 'MBA211A.1', courseTitle: 'Global Business', instructor: 'Prof. Thomas', days: ['Tuesday', 'Thursday'], times: '2:00 PM - 3:30 PM', startTime: '2:00 PM', endTime: '3:30 PM', location: 'Chou Hall C230', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
+];
+
+// ============================================
+// Utilities (removed - now handled by backend)
+// ============================================
+
+// ============================================
+// Main Application
+// ============================================
+export default function App() {
+  // Flow state
+  const [step, setStep] = useState(1); // 1: Connect, 2: Upload, 3: Review, 4: Success
+  const [isCalendarConnected, setIsCalendarConnected] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  
+  // Data state
   const [courses, setCourses] = useState([]);
   const [originalCourses, setOriginalCourses] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
+  
+  // Result state
+  const [addResult, setAddResult] = useState(null);
+  
+  // UI state
   const [loading, setLoading] = useState(false);
+  const [addingToCalendar, setAddingToCalendar] = useState(false);
   const [error, setError] = useState('');
-  const [progress, setProgress] = useState(0);
-  const [validation, setValidation] = useState({ error: '' });
+  const [isDragging, setIsDragging] = useState(false);
+  
+  const fileInputRef = useRef(null);
 
-  // Load course database on component mount
+  // Handle OAuth callback from URL params
   useEffect(() => {
-    const initializeDatabase = async () => {
-      try {
-        console.log('=== INITIALIZING APPLICATION ===');
-        await loadCourseDatabase();
-        console.log('=== APPLICATION INITIALIZED ===');
-      } catch (error) {
-        console.error('Failed to initialize application:', error);
-        setError('Failed to load course database. Please refresh the page.');
-      }
-    };
-
-    initializeDatabase();
+    const params = new URLSearchParams(window.location.search);
+    const authStatus = params.get('auth');
+    const emailParam = params.get('email');
+    
+    if (authStatus === 'success' && emailParam) {
+      setUserEmail(emailParam);
+      setIsCalendarConnected(true);
+      setStep(2); // Go to upload step after successful auth
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (authStatus === 'error') {
+      const message = params.get('message');
+      setError(`Failed to connect Google Calendar: ${message}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
+  // Check calendar connection status when email changes
+  const checkCalendarConnection = useCallback(async (email) => {
+    if (!email) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/api/auth/status?email=${encodeURIComponent(email)}`);
+      const data = await response.json();
+      setIsCalendarConnected(data.connected && data.hasValidToken);
+    } catch (err) {
+      console.error('Failed to check calendar connection:', err);
+      setIsCalendarConnected(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userEmail) {
+      checkCalendarConnection(userEmail);
+    }
+  }, [userEmail, checkCalendarConnection]);
+
+  // Connect to Google Calendar via OAuth
+  const handleConnect = useCallback(async () => {
+    if (!userEmail || !userEmail.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/google?email=${encodeURIComponent(userEmail)}`);
+      const data = await response.json();
+      
+      if (data.authUrl) {
+        // Redirect to Google OAuth
+        window.location.href = data.authUrl;
+      } else {
+        setError('Failed to initiate Google Calendar connection');
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Failed to connect calendar:', err);
+      setError('Failed to connect to server. Please try again.');
+      setLoading(false);
+    }
+  }, [userEmail]);
+
+  const handleDisconnect = useCallback(async () => {
+    try {
+      await fetch(`${API_URL}/api/auth/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail })
+      });
+    } catch (err) {
+      console.error('Failed to disconnect:', err);
+    }
+    setIsCalendarConnected(false);
+    setUserEmail('');
+    setStep(1);
+  }, [userEmail]);
+
+  // File upload handling with real OCR
+  const processFile = useCallback(async (file) => {
     if (!file) return;
+    
     setLoading(true);
     setError('');
-    setProgress(0);
+    
     try {
       const formData = new FormData();
       formData.append('image', file);
+      
       const response = await fetch(`${API_URL}/api/extract-table`, {
         method: 'POST',
         body: formData,
       });
+      
       const data = await response.json();
+      
       if (data.courses && data.courses.length > 0) {
-        // Transform the received data format (only time transformation needed now)
-        const transformedCourses = data.courses.map(course => ({
-          ...course,
-          // Keep days as array of full names
-          times: convertMilitaryTo12Hour(course.times)
-        }));
-        setCourses(transformedCourses);
-        setOriginalCourses(transformedCourses);
-        setStep(2);
+        // Normalize courses via backend API
+        const normalizeResponse = await fetch(`${API_URL}/api/courses/normalize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courses: data.courses })
+        });
+        
+        const normalizeData = await normalizeResponse.json();
+        if (normalizeData.success && normalizeData.courses) {
+          setCourses(normalizeData.courses);
+          setOriginalCourses(normalizeData.courses);
+          setStep(3);
+        } else {
+          setError('Failed to normalize courses. Please try again.');
+        }
       } else {
-        setError('No courses found in the image. Please make sure the image is clear and contains course information.');
+        setError('No courses found in the image. Please try again with a clearer screenshot.');
       }
     } catch (err) {
-      setError('Failed to extract table.');
-      console.error('Frontend fetch error:', err);
+      console.error('Failed to extract courses:', err);
+      setError('Failed to process image. Please try again.');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
   };
 
-  // Validate all courses before generating events
-  const validateAllCourses = (courses) => {
-    for (const c of courses) {
-      if (!validateCourseCode(c.courseNo)) return 'Invalid course code.';
-      if (!validateDays(c.days)) return 'Invalid days format or value.'; // Updated error message
-      if (!validateTime(c.times)) return 'Invalid time format. Use e.g. 09:00 AM - 10:30 AM';
-    }
-    return '';
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
   };
 
-  const handleGenerateCalendar = () => {
-    console.log('=== STARTING CALENDAR GENERATION ===');
-    console.log('Initial courses:', courses);
-    
-    // Validate courses
-    const err = validateAllCourses(courses);
-    if (err) {
-      console.error('Validation error:', err);
-      setValidation({ error: err });
-      return;
-    }
-    setValidation({ error: '' });
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Course editing
+  const handleCourseChange = (idx, field, value) => {
+    setCourses(prev => prev.map((c, i) => 
+      i === idx ? { ...c, [field]: value } : c
+    ));
+  };
+
+  // Add events to Google Calendar via API
+  const handleAddToCalendar = async () => {
+    if (!isCalendarConnected) {
+      setError('Please connect your Google Calendar first');
+          return;
+        }
+        
+    setAddingToCalendar(true);
+    setError('');
+    setAddResult(null);
 
     try {
-      // Look up course information
-      console.log('Looking up course information...');
-      const coursesWithInfo = courses.map(course => {
-        console.log('Looking up info for course:', course.courseNo);
-        const courseInfo = getCourseInfo(course.courseNo);
-        console.log('Found info:', courseInfo);
-        
-        return {
-          ...course,
-          location: courseInfo.location,
-          startDate: courseInfo.startDate,
-          endDate: courseInfo.endDate
-        };
+      // Send courses directly to backend (backend handles normalization)
+      const response = await fetch(`${API_URL}/api/calendar/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userEmail,
+          courses: courses
+        })
       });
 
-      // Generate calendar events
-      const events = [];
-      const skippedCourses = [];
+      const result = await response.json();
       
-      coursesWithInfo.forEach(course => {
-        console.log('Processing course:', course.courseNo);
-        
-        // Validate required fields
-        if (!course.days || !course.times) {
-          console.log('Skipping course due to missing days or times:', course.courseNo);
-          skippedCourses.push(course);
-          return;
-        }
-        
-        // Parse days and validate
-        const days = parseDays(course.days);
-        if (!days.length) {
-          console.log('Skipping course due to invalid days:', course.courseNo, course.days);
-          skippedCourses.push(course);
-          return;
-        }
-        
-        // Parse time information
-        const { startTime, endTime } = parseTimeRange(course.times);
-        const start = parseTime(startTime);
-        const end = parseTime(endTime);
-        
-        // Generate events for each day
-        days.forEach(day => {
-          try {
-            const dayIndex = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(day);
-            const termStart = new Date(course.startDate);
-            const daysToAdd = (dayIndex - termStart.getDay() + 7) % 7;
-            
-            const firstOccurrence = new Date(termStart);
-            firstOccurrence.setDate(termStart.getDate() + daysToAdd);
-            
-            // Create dates in Pacific Time
-            const startDateTime = createDateInPT(
-              firstOccurrence.toISOString().split('T')[0], 
-              start.hours, 
-              start.minutes
-            );
-            const endDateTime = createDateInPT(
-              firstOccurrence.toISOString().split('T')[0], 
-              end.hours, 
-              end.minutes
-            );
-            
-            const event = {
-              id: `${course.courseNo}-${day}`,
-              title: course.courseTitle,
-              courseNo: course.courseNo,
-              instructor: course.instructor,
-              location: course.location,
-              start: startDateTime,
-              end: endDateTime,
-              recurrence: { frequency: 'WEEKLY', until: createDateInPT(course.endDate) },
-              day,
-              startDate: course.startDate,
-              endDate: course.endDate
-            };
-            
-            console.log('Generated event:', {
-              courseNo: course.courseNo,
-              day,
-              start: startDateTime.toLocaleString(),
-              end: endDateTime.toLocaleString(),
-              location: course.location,
-              startDate: course.startDate,
-              endDate: course.endDate
-            });
-            
-            events.push(event);
-          } catch (error) {
-            console.error('Error generating event for course:', course.courseNo, 'day:', day, error);
-            skippedCourses.push(course);
-          }
-        });
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create calendar events');
+      }
+
+      // Get preview events from backend for display
+      const previewResponse = await fetch(`${API_URL}/api/calendar/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courses: courses })
       });
       
-      console.log('=== CALENDAR GENERATION COMPLETE ===');
-      console.log('Total events generated:', events.length);
-      console.log('Skipped courses:', skippedCourses.length);
+      const previewData = await previewResponse.json();
+      if (previewData.success && previewData.events) {
+        setCalendarEvents(previewData.events);
+      } else {
+        setCalendarEvents([]);
+      }
       
-      setCalendarEvents(events);
-      setError(skippedCourses.length > 0 
-        ? `${skippedCourses.length} course(s) were skipped due to missing or invalid data.` 
-        : '');
-      setStep(3);
+      setAddResult(result);
+      setStep(4);
       
-    } catch (error) {
-      console.error('Calendar generation error:', error);
-      setError('Failed to generate calendar events. Please try again.');
+    } catch (err) {
+      console.error('Failed to add events to calendar:', err);
+      setError(err.message || 'Failed to add events to Google Calendar. Please try again.');
+    } finally {
+      setAddingToCalendar(false);
     }
   };
 
-  const generateGoogleCalendarURL = (event) => {
-    const baseURL = 'https://calendar.google.com/calendar/render';
-    const params = new URLSearchParams({
-      action: 'TEMPLATE',
-      text: `${event.courseNo} - ${event.title}`,
-      details: `Instructor: ${event.instructor}\nCourse: ${event.courseNo}\nDates: ${event.startDate} to ${event.endDate}`,
-      location: event.location,
-      dates: `${formatGoogleDateInPT(event.start)}/${formatGoogleDateInPT(event.end)}`,
-      recur: `RRULE:FREQ=WEEKLY;UNTIL=${formatGoogleDateInPT(event.recurrence.until)}`
-    });
-    return `${baseURL}?${params.toString()}`;
-  };
+  // Calculate progress
+  const progress = ((step - 1) / 3) * 100;
 
-  const downloadICSFile = () => {
-    let icsContent = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MBA Course Schedule Converter//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'
-    ];
-    calendarEvents.forEach(event => {
-      const getDayAbbreviation = (day) => {
-        const dayMap = { 'Sunday': 'SU', 'Monday': 'MO', 'Tuesday': 'TU', 'Wednesday': 'WE', 'Thursday': 'TH', 'Friday': 'FR', 'Saturday': 'SA' };
-        return dayMap[day] || day.substring(0, 2).toUpperCase();
-      };
-      icsContent = icsContent.concat([
-        'BEGIN:VEVENT',
-        `UID:${event.id}@mbaschedule.com`,
-        `SUMMARY:${event.courseNo} - ${event.title}`,
-        `DESCRIPTION:Instructor: ${event.instructor}\\nCourse: ${event.courseNo}\\nDates: ${event.startDate} to ${event.endDate}`,
-        `LOCATION:${event.location}`,
-        `DTSTART:${formatICSDateInPT(event.start)}`,
-        `DTEND:${formatICSDateInPT(event.end)}`,
-        `RRULE:FREQ=WEEKLY;UNTIL=${formatICSDateInPT(event.recurrence.until)};BYDAY=${getDayAbbreviation(event.day)}`,
-        'SEQUENCE:0', 'STATUS:CONFIRMED', 'TRANSP:OPAQUE', 'END:VEVENT'
-      ]);
-    });
-    icsContent.push('END:VCALENDAR');
-    const blob = new Blob([icsContent.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'MBA_Course_Schedule.ics');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  return (
+    <div className="app">
+      {/* Navigation */}
+      <nav className="nav">
+        <div className="nav-content">
+          <div className="nav-brand">
+            <div className="nav-logo">H</div>
+            <span className="nav-title">Haas Calendar</span>
+          </div>
+          <div className="nav-status">
+            <span className={`status-dot ${isCalendarConnected ? 'connected' : ''}`} />
+            {isCalendarConnected ? userEmail : 'Not connected'}
+          </div>
+        </div>
+      </nav>
 
-  // --- Step Renderers ---
-  const renderStep1 = () => (
-    <div className="step-container">
-      <div className="header">
-        <h1>Berkeley Haas Schedule Converter</h1>
-        <a
-          href="https://olr.haas.berkeley.edu/Student/MySchedule"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="olr-link"
-        >
-          Take a screenshot of your schedule from OLR and upload here
-        </a>
+      {/* Progress Bar */}
+      <div className="progress-bar">
+        <div className="progress-fill" style={{ width: `${progress}%` }} />
       </div>
 
-      <p className="example-label">Example screenshot:</p>
-      <img src="/images/schedule_example.png" alt="Example of a course schedule screenshot from OLR" className="example-schedule-img" aria-label="Example course schedule screenshot to upload" />
-
-      <div className="upload-section" onClick={() => document.getElementById('fileInput').click()}>
-        <span className="upload-icon">📤</span>
-        <h2>Upload Your Schedule</h2>
-        <p>Click to upload or drag and drop your schedule image</p>
-        <input id="fileInput" type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+      <main className="main">
+        <div className={`container ${step === 3 ? 'wide' : ''}`}>
+          {/* Step Indicator */}
+          <div className="steps">
+            {[
+              { num: 1, label: 'Connect' },
+              { num: 2, label: 'Upload' },
+              { num: 3, label: 'Review' },
+              { num: 4, label: 'Done' },
+            ].map((s) => (
+              <div
+                key={s.num}
+                className={`step ${step === s.num ? 'active' : ''} ${step > s.num ? 'completed' : ''}`}
+                onClick={() => step > s.num && setStep(s.num)}
+              >
+                <div className="step-number">
+                  {step > s.num ? <Icons.Check /> : s.num}
+                </div>
+                <span className="step-label">{s.label}</span>
+              </div>
+            ))}
       </div>
-      {loading && (
+
+          {/* Step 1: Connect Calendar */}
+          {step === 1 && (
+            <div className="animate-in">
+              <div className="page-header">
+                <h1 className="page-title">Connect Your Calendar</h1>
+                <p className="page-subtitle">
+                  Link your Google Calendar to automatically sync your class schedule
+                </p>
+              </div>
+
+              <div className="card card-highlight connection-card">
+                <div className={`connection-icon ${isCalendarConnected ? 'connected' : ''}`}>
+                  <Icons.Calendar />
+                </div>
+                <h2 className="connection-title">Google Calendar</h2>
+                <p className="connection-text">
+                  {isCalendarConnected 
+                    ? <>Connected as <span className="connection-email">{userEmail}</span></>
+                    : 'Enter your Berkeley email to get started'
+                  }
+                </p>
+
+                {!isCalendarConnected && (
+                  <>
+                    <div className="input-group">
+          <input
+            type="email"
+                        className="input centered"
+                        placeholder="your.email@berkeley.edu"
+            value={userEmail}
+            onChange={(e) => setUserEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
+          />
+        </div>
+
+              <button 
+                      className="btn btn-google btn-lg"
+                      onClick={handleConnect}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <Icons.Loader />
+                      ) : (
+                        <>
+                          <GoogleIcon />
+                          Connect Google Calendar
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {isCalendarConnected && (
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={handleDisconnect}
+              >
+                Disconnect
+              </button>
+                )}
+            </div>
+
+              {error && (
+                <div className="error-message">
+                  <Icons.AlertCircle />
+                  {error}
+            </div>
+          )}
+
+              {isCalendarConnected && (
+                <div className="action-bar">
+                  <button className="btn btn-primary btn-lg" onClick={() => setStep(2)}>
+                    Continue
+                    <Icons.ArrowRight />
+                  </button>
+        </div>
+              )}
+
+      </div>
+          )}
+
+          {/* Step 2: Upload Schedule */}
+          {step === 2 && !isCalendarConnected && (
+            <div className="animate-in">
+              <div className="card" style={{ textAlign: 'center', padding: 'var(--space-3xl)' }}>
+                <div className="upload-icon" style={{ marginBottom: 'var(--space-lg)', color: 'var(--accent-gold)' }}>
+                  <Icons.AlertCircle />
+                </div>
+                <h2 className="page-title">Calendar Connection Required</h2>
+                <p className="page-subtitle" style={{ marginBottom: 'var(--space-xl)' }}>
+                  Please connect your Google Calendar before uploading your schedule.
+                </p>
+                <button 
+                  className="btn btn-gold btn-lg"
+                  onClick={() => setStep(1)}
+                >
+                  <Icons.Calendar />
+                  Connect Google Calendar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && isCalendarConnected && (
+            <div className="animate-in">
+              <div className="page-header">
+                <h1 className="page-title">Upload Your Schedule</h1>
+                <p className="page-subtitle">
+                  Take a screenshot from{' '}
+                  <a 
+                    href="https://olr.haas.berkeley.edu/Student/MySchedule" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="link"
+                  >
+                    OLR
+                  </a>
+                  {' '}and upload it here
+                </p>
+      </div>
+
+              <div
+                className={`upload-zone ${isDragging ? 'dragging' : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
+                
+                {loading ? (
         <div className="loading">
-          <div className="loading-spinner" />
-          <p className="loading-text">Processing image... {Math.round(progress)}%</p>
+                    <div className="spinner" />
+                    <p className="loading-text">Extracting courses...</p>
+        </div>
+                ) : (
+                  <>
+                    <div className="upload-icon">
+                      <Icons.Upload />
+                    </div>
+                    <h3 className="upload-title">Drop your screenshot here</h3>
+                    <p className="upload-text">or click to browse files</p>
+                    <p className="upload-hint">Supports PNG, JPG up to 10MB</p>
+                  </>
+                )}
+    </div>
+
+              <div className="divider">or try with sample data</div>
+              
+              <button 
+                className="btn btn-secondary btn-full"
+                onClick={async () => {
+                  try {
+                    // Normalize demo courses via backend
+                    const normalizeResponse = await fetch(`${API_URL}/api/courses/normalize`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ courses: MOCK_COURSES })
+                    });
+                    
+                    const normalizeData = await normalizeResponse.json();
+                    if (normalizeData.success && normalizeData.courses) {
+                      setCourses(normalizeData.courses);
+                      setOriginalCourses(normalizeData.courses);
+                      setStep(3);
+                    } else {
+                      setError('Failed to load demo schedule. Please try again.');
+                    }
+                  } catch (err) {
+                    console.error('Failed to load demo schedule:', err);
+                    setError('Failed to load demo schedule. Please try again.');
+                  }
+                }}
+              >
+                Load Demo Schedule
+              </button>
+
+              {error && (
+                <div className="error-message">
+                  <Icons.AlertCircle />
+                  {error}
+      </div>
+              )}
+
+              <div className="example-section">
+                <p className="example-label">Example Screenshot</p>
+                <img 
+                  src="/images/schedule_example.png" 
+                  alt="Example OLR schedule" 
+                  className="example-image"
+                />
+      </div>
+
+              <div className="action-bar">
+                <button className="btn btn-secondary" onClick={() => setStep(1)}>
+                  <Icons.ArrowLeft />
+                  Back
+                </button>
+    </div>
+            </div>
+          )}
+
+          {/* Step 3: Review Courses */}
+          {step === 3 && (
+            <div className="animate-in">
+              <div className="page-header">
+                <h1 className="page-title">Review Your Courses</h1>
+                <p className="page-subtitle">
+                  Click on any field below to edit. Changes are highlighted in yellow.
+                </p>
+      </div>
+
+              <div className="card course-table-card" style={{ paddingTop: 'var(--space-md)', overflowX: 'auto', overflowY: 'auto', maxHeight: '80vh' }}>
+                <table className="course-table">
+                  <thead>
+                    <tr>
+                      <th>Course No</th>
+                      <th>Title</th>
+                      <th>Location</th>
+                      <th>Instructor</th>
+                      <th>Start Date</th>
+                      <th>End Date</th>
+                      <th>Start Time</th>
+                      <th>End Time</th>
+                      <th>Days</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courses.map((course, idx) => {
+                      const originalCourse = originalCourses[idx] || null;
+                      
+                      return (
+                        <tr key={idx}>
+                          <td>
+                            <input
+                              className={`course-input ${course.courseNo !== originalCourse?.courseNo ? 'edited' : ''}`}
+                              value={course.courseNo || ''}
+                              onChange={(e) => handleCourseChange(idx, 'courseNo', e.target.value)}
+                              placeholder="MBA201A.1"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className={`course-input ${course.courseTitle !== originalCourse?.courseTitle ? 'edited' : ''}`}
+                              value={course.courseTitle || ''}
+                              onChange={(e) => handleCourseChange(idx, 'courseTitle', e.target.value)}
+                              placeholder="Course Title"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className={`course-input ${course.location !== originalCourse?.location ? 'edited' : ''}`}
+                              value={course.location || ''}
+                              onChange={(e) => handleCourseChange(idx, 'location', e.target.value)}
+                              placeholder="Room TBD"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className={`course-input ${course.instructor !== originalCourse?.instructor ? 'edited' : ''}`}
+                              value={course.instructor || ''}
+                              onChange={(e) => handleCourseChange(idx, 'instructor', e.target.value)}
+                              placeholder="Instructor Name"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="date"
+                              className={`course-input course-input-date ${course.startDate !== originalCourse?.startDate ? 'edited' : ''}`}
+                              value={course.startDate || ''}
+                              onChange={(e) => handleCourseChange(idx, 'startDate', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="date"
+                              className={`course-input course-input-date ${course.endDate !== originalCourse?.endDate ? 'edited' : ''}`}
+                              value={course.endDate || ''}
+                              onChange={(e) => handleCourseChange(idx, 'endDate', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className={`course-input course-input-time ${course.startTime !== originalCourse?.startTime ? 'edited' : ''}`}
+                              value={course.startTime || ''}
+                              onChange={(e) => handleCourseChange(idx, 'startTime', e.target.value)}
+                              placeholder="9:00 AM"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className={`course-input course-input-time ${course.endTime !== originalCourse?.endTime ? 'edited' : ''}`}
+                              value={course.endTime || ''}
+                              onChange={(e) => handleCourseChange(idx, 'endTime', e.target.value)}
+                              placeholder="10:30 AM"
+                            />
+                          </td>
+                          <td>
+                            <DaysMultiSelect
+                              selectedDays={Array.isArray(course.days) ? course.days : (course.days ? [course.days] : [])}
+                              onChange={(selectedDays) => handleCourseChange(idx, 'days', selectedDays)}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {error && (
+                <div className="error-message">
+                  <Icons.AlertCircle />
+                  {error}
+                </div>
+              )}
+
+              <div className="action-bar">
+                <button className="btn btn-secondary" onClick={() => setStep(2)}>
+                  <Icons.ArrowLeft />
+                  Back
+                </button>
+                <button 
+                  className="btn btn-gold btn-lg" 
+                  onClick={handleAddToCalendar}
+                  disabled={addingToCalendar || courses.length === 0}
+                >
+                  {addingToCalendar ? (
+                    <>
+                      <Icons.Loader />
+                      Adding Events...
+                    </>
+                  ) : (
+                    <>
+                      <Icons.Calendar />
+                      Add to Calendar
+                    </>
+                  )}
+                </button>
+                </div>
+
         </div>
       )}
-      {error && <div className="error-message">{error}</div>}
-    </div>
-  );
 
-  const renderStep2 = () => (
-    <div className="step-container">
-      <div className="header">
-        <h1>Review & Edit Your Courses</h1>
-        <p>Edit any field below. Fields you change are highlighted. Invalid fields are marked in red.</p>
-      </div>
-      <EditableCourseTable
-        courses={courses}
-        onChange={setCourses}
-        validation={validation}
-        originalCourses={originalCourses}
-      />
-      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2rem' }}>
-        <button className="button button-secondary" onClick={() => setStep(1)}>Back</button>
-        <button className="button" onClick={handleGenerateCalendar}>Generate Calendar</button>
-      </div>
-    </div>
-  );
-
-  const renderStep3 = () => (
-    <div className="step-container">
-      <div className="header">
-        <h1>Calendar Generated!</h1>
-        <p>Your calendar events are ready to be added to your calendar</p>
-        <p className="timezone-notice">🕐 All times are in Pacific Time (PT)</p>
-      </div>
-      <EventPreview events={calendarEvents} generateGoogleCalendarURL={generateGoogleCalendarURL} />
-      <div className="download-all-section">
-        <h2>Download All Events</h2>
-        <p>Download a single ICS file containing all your course events</p>
-        <button className="button" onClick={downloadICSFile}>Download All Events (ICS)</button>
-      </div>
-      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2rem' }}>
-        <button className="button button-secondary" onClick={() => setStep(2)}>Back</button>
-      </div>
-    </div>
-  );
-
-  // --- Main Render ---
-  return (
-    <div className="App">
-      <div className="step-indicator">
-        <div className="step-indicator-container">
-          {[
-            { number: 1, label: 'Upload', active: step >= 1 },
-            { number: 2, label: 'Verify', active: step >= 2 },
-            { number: 3, label: 'Create Calendar', active: step >= 3 }
-          ].map((stepInfo, index) => (
-            <div
-              key={index}
-              className={`step-item ${stepInfo.active ? 'clickable' : ''}`}
-              onClick={() => { if (stepInfo.active) setStep(index + 1); }}
-            >
-              <div className={`step-number ${stepInfo.active ? 'active' : ''}`}>{stepInfo.number}</div>
-              <div className={`step-label ${stepInfo.active ? 'active' : ''}`}>{stepInfo.label}</div>
-            </div>
-          ))}
+          {/* Step 4: Success */}
+          {step === 4 && (
+            <div className="animate-in">
+              <div className="card success-card">
+                <div className="success-icon">
+                  <Icons.Check />
         </div>
-        <div className="step-progress-bar">
-          <div className="step-progress" style={{ width: `${((step - 1) / 2) * 100}%` }} />
-        </div>
+                <h2 className="success-title">
+                  {addResult?.success ? 'Events Added!' : 'Events Created'}
+                </h2>
+                <p className="success-text">
+                  {addResult?.totalCreated 
+                    ? `Successfully added ${addResult.totalCreated} events to your Google Calendar`
+                    : `${calendarEvents.length} calendar events are ready`
+                  }
+                </p>
+                {addResult?.totalFailed > 0 && (
+                  <p className="success-warning">
+                    {addResult.totalFailed} events could not be added
+                  </p>
+                )}
       </div>
-      {step === 1 && renderStep1()}
-      {step === 2 && renderStep2()}
-      {step === 3 && renderStep3()}
+
+              <div className="divider">Your Events</div>
+
+              <div className="events-grid">
+                {calendarEvents.map((event) => (
+                  <div key={event.id} className="event-card">
+                    <div className="event-info">
+                      <span className="event-code">{event.courseNo}</span>
+                      <h3 className="event-title">{event.title}</h3>
+                      <div className="event-details">
+                        <span className="event-detail">
+                          <Icons.User />
+                          {event.instructor}
+                        </span>
+                        <span className="event-detail">
+                          <Icons.Clock />
+                          {event.day}s, {event.startTime} - {event.endTime}
+                        </span>
+                        <span className="event-detail">
+                          <Icons.MapPin />
+                          {event.location}
+                        </span>
+      </div>
+      </div>
+    </div>
+                ))}
+              </div>
+
+              {(addResult?.totalFailed > 0 || !addResult?.success) && (
+                <div className="download-section">
+                  <h3 className="download-title">Having issues?</h3>
+                  <p className="download-text">
+                    Download an ICS file as a backup option for other calendar apps
+                  </p>
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={async () => {
+                      try {
+                        // Get ICS file from backend
+                        const icsResponse = await fetch(`${API_URL}/api/calendar/ics`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ courses: courses })
+                        });
+                        
+                        if (!icsResponse.ok) {
+                          throw new Error('Failed to generate ICS file');
+                        }
+                        
+                        const blob = await icsResponse.blob();
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = 'haas_schedule.ics';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                      } catch (err) {
+                        console.error('Failed to download ICS file:', err);
+                        setError('Failed to download ICS file. Please try again.');
+                      }
+                    }}
+                  >
+                    <Icons.Download />
+                    Download .ICS File
+                  </button>
+                </div>
+              )}
+
+              <div className="action-bar">
+                <button className="btn btn-secondary" onClick={() => setStep(3)}>
+                  <Icons.ArrowLeft />
+                  Back to Review
+                </button>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setCourses([]);
+                    setOriginalCourses([]);
+                    setCalendarEvents([]);
+                    setAddResult(null);
+                    setStep(2);
+                  }}
+                >
+                  Add More Courses
+                </button>
+        </div>
+        </div>
+          )}
+      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="footer">
+        Made for Berkeley Haas students
+      </footer>
     </div>
   );
 }
