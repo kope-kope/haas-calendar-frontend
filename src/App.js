@@ -182,23 +182,6 @@ const DaysMultiSelect = ({ selectedDays, onChange }) => {
 };
 
 // ============================================
-// Mock Data for Demo Mode (11 courses for edge case testing)
-// ============================================
-const MOCK_COURSES = [
-  { courseNo: 'MBA201A.1', courseTitle: 'Microeconomics', instructor: 'Prof. Smith', days: ['Monday', 'Wednesday'], times: '9:00 AM - 10:30 AM', startTime: '9:00 AM', endTime: '10:30 AM', location: 'Chou Hall C125', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA202A.1', courseTitle: 'Leadership', instructor: 'Prof. Johnson', days: ['Tuesday', 'Thursday'], times: '11:00 AM - 12:30 PM', startTime: '11:00 AM', endTime: '12:30 PM', location: 'Chou Hall C220', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA203A.1', courseTitle: 'Finance', instructor: 'Prof. Williams', days: ['Monday', 'Wednesday'], times: '2:00 PM - 3:30 PM', startTime: '2:00 PM', endTime: '3:30 PM', location: 'Chou Hall C320', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA204A.1', courseTitle: 'Marketing Strategy', instructor: 'Prof. Davis', days: ['Monday', 'Wednesday', 'Friday'], times: '10:00 AM - 11:00 AM', startTime: '10:00 AM', endTime: '11:00 AM', location: 'Chou Hall C410', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA205A.1', courseTitle: 'Operations Management', instructor: 'Prof. Brown', days: ['Tuesday', 'Thursday'], times: '1:00 PM - 2:30 PM', startTime: '1:00 PM', endTime: '2:30 PM', location: 'Chou Hall C510', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA206A.1', courseTitle: 'Data Analytics', instructor: 'Prof. Miller', days: ['Monday', 'Wednesday'], times: '3:00 PM - 4:30 PM', startTime: '3:00 PM', endTime: '4:30 PM', location: 'Chou Hall C210', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA207A.1', courseTitle: 'Strategic Management', instructor: 'Prof. Wilson', days: ['Tuesday', 'Thursday'], times: '9:30 AM - 11:00 AM', startTime: '9:30 AM', endTime: '11:00 AM', location: 'Chou Hall C330', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA208A.1', courseTitle: 'Entrepreneurship', instructor: 'Prof. Moore', days: ['Friday'], times: '2:00 PM - 5:00 PM', startTime: '2:00 PM', endTime: '5:00 PM', location: 'Chou Hall C440', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA209A.1', courseTitle: 'Organizational Behavior', instructor: 'Prof. Taylor', days: ['Monday', 'Wednesday'], times: '11:00 AM - 12:30 PM', startTime: '11:00 AM', endTime: '12:30 PM', location: 'Chou Hall C550', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA210A.1', courseTitle: 'Business Ethics', instructor: 'Prof. Anderson', days: ['Thursday'], times: '4:00 PM - 6:00 PM', startTime: '4:00 PM', endTime: '6:00 PM', location: 'Chou Hall C120', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-  { courseNo: 'MBA211A.1', courseTitle: 'Global Business', instructor: 'Prof. Thomas', days: ['Tuesday', 'Thursday'], times: '2:00 PM - 3:30 PM', startTime: '2:00 PM', endTime: '3:30 PM', location: 'Chou Hall C230', startDate: '2025-08-28', endDate: '2025-12-05', notes: '' },
-];
-
-// ============================================
 // Utilities (removed - now handled by backend)
 // ============================================
 
@@ -214,7 +197,6 @@ export default function App() {
   // Data state
   const [courses, setCourses] = useState([]);
   const [originalCourses, setOriginalCourses] = useState([]);
-  const [calendarEvents, setCalendarEvents] = useState([]);
   
   // Result state
   const [addResult, setAddResult] = useState(null);
@@ -432,20 +414,6 @@ export default function App() {
       
       if (!response.ok) {
         throw new Error(result.error || 'Failed to create calendar events');
-      }
-
-      // Get preview events from backend for display
-      const previewResponse = await fetch(`${API_URL}/api/calendar/preview`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courses: courses })
-      });
-      
-      const previewData = await previewResponse.json();
-      if (previewData.success && previewData.events) {
-        setCalendarEvents(previewData.events);
-      } else {
-        setCalendarEvents([]);
       }
       
       setAddResult(result);
