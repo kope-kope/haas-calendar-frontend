@@ -84,6 +84,25 @@ const Icons = {
       <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
     </svg>
   ),
+  Plus: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  ),
+  Trash: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  ),
+  ExternalLink: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  ),
 };
 
 const GoogleIcon = () => (
@@ -362,6 +381,31 @@ export default function App() {
     ));
   };
 
+  // Add a new course
+  const handleAddCourse = () => {
+    const newCourse = {
+      courseNo: '',
+      courseTitle: '',
+      location: '',
+      instructor: '',
+      startDate: '',
+      endDate: '',
+      startTime: '',
+      endTime: '',
+      days: [],
+      times: '',
+      notes: ''
+    };
+    setCourses(prev => [...prev, newCourse]);
+    setOriginalCourses(prev => [...prev, null]); // null for new courses (no original to compare)
+  };
+
+  // Remove a course
+  const handleRemoveCourse = (idx) => {
+    setCourses(prev => prev.filter((_, i) => i !== idx));
+    setOriginalCourses(prev => prev.filter((_, i) => i !== idx));
+  };
+
   // Add events to Google Calendar via API
   const handleAddToCalendar = async () => {
     if (!isCalendarConnected) {
@@ -568,18 +612,27 @@ export default function App() {
           {step === 2 && isCalendarConnected && (
             <div className="animate-in">
               <div className="page-header">
-                <h1 className="page-title">Upload Your Schedule</h1>
+                <h1 className="page-title">Upload Your Final Schedule</h1>
                 <p className="page-subtitle">
-                  Take a screenshot from{' '}
+                  Upload a screenshot of your final schedule from{' '}
                   <a 
                     href="https://olr.haas.berkeley.edu/Student/MySchedule" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="link"
                   >
-                    OLR
+                    OLR My Schedule
                   </a>
-                  {' '}and upload it here
+                  {' '}or your{' '}
+                  <a 
+                    href="https://olr.haas.berkeley.edu/Bidding/Bidding?intProcessID=895" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="link"
+                  >
+                    Successful Bid and History
+                  </a>
+                  . Make sure you have successfully enrolled in all courses before uploading.
                 </p>
       </div>
 
@@ -608,42 +661,12 @@ export default function App() {
                     <div className="upload-icon">
                       <Icons.Upload />
                     </div>
-                    <h3 className="upload-title">Drop your screenshot here</h3>
+                    <h3 className="upload-title">Drop your final schedule screenshot here</h3>
                     <p className="upload-text">or click to browse files</p>
-                    <p className="upload-hint">Supports PNG, JPG up to 10MB</p>
+                    <p className="upload-hint">Upload your completed enrollment schedule (PNG, JPG up to 10MB)</p>
                   </>
                 )}
     </div>
-
-              <div className="divider">or try with sample data</div>
-              
-              <button 
-                className="btn btn-secondary btn-full"
-                onClick={async () => {
-                  try {
-                    // Normalize demo courses via backend
-                    const normalizeResponse = await fetch(`${API_URL}/api/courses/normalize`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ courses: MOCK_COURSES })
-                    });
-                    
-                    const normalizeData = await normalizeResponse.json();
-                    if (normalizeData.success && normalizeData.courses) {
-                      setCourses(normalizeData.courses);
-                      setOriginalCourses(normalizeData.courses);
-                      setStep(3);
-                    } else {
-                      setError('Failed to load demo schedule. Please try again.');
-                    }
-                  } catch (err) {
-                    console.error('Failed to load demo schedule:', err);
-                    setError('Failed to load demo schedule. Please try again.');
-                  }
-                }}
-              >
-                Load Demo Schedule
-              </button>
 
               {error && (
                 <div className="error-message">
@@ -676,106 +699,155 @@ export default function App() {
               <div className="page-header">
                 <h1 className="page-title">Review Your Courses</h1>
                 <p className="page-subtitle">
-                  Click on any field below to edit. Changes are highlighted in yellow.
+                  Click on any field to edit. Changes are highlighted in yellow.
                 </p>
       </div>
 
-              <div className="card course-table-card" style={{ paddingTop: 'var(--space-md)', overflowX: 'auto', overflowY: 'auto', maxHeight: '80vh' }}>
-                <table className="course-table">
-                  <thead>
-                    <tr>
-                      <th>Course No</th>
-                      <th>Title</th>
-                      <th>Location</th>
-                      <th>Instructor</th>
-                      <th>Start Date</th>
-                      <th>End Date</th>
-                      <th>Start Time</th>
-                      <th>End Time</th>
-                      <th>Days</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {courses.map((course, idx) => {
-                      const originalCourse = originalCourses[idx] || null;
-                      
-                      return (
-                        <tr key={idx}>
-                          <td>
+              <div className="courses-grid">
+                {courses.map((course, idx) => {
+                  const originalCourse = originalCourses[idx] || null;
+                  const isEdited = originalCourse && (
+                    course.courseNo !== originalCourse?.courseNo ||
+                    course.courseTitle !== originalCourse?.courseTitle ||
+                    course.location !== originalCourse?.location ||
+                    course.instructor !== originalCourse?.instructor ||
+                    course.startDate !== originalCourse?.startDate ||
+                    course.endDate !== originalCourse?.endDate ||
+                    course.startTime !== originalCourse?.startTime ||
+                    course.endTime !== originalCourse?.endTime ||
+                    JSON.stringify(course.days) !== JSON.stringify(originalCourse?.days)
+                  );
+
+                  return (
+                    <div key={idx} className={`course-card ${isEdited ? 'course-card-edited' : ''}`}>
+                      <div className="course-card-header">
+                        <div className="course-card-title-group">
+                          <input
+                            className={`course-card-code ${course.courseNo !== originalCourse?.courseNo ? 'edited' : ''}`}
+                            value={course.courseNo || ''}
+                            onChange={(e) => handleCourseChange(idx, 'courseNo', e.target.value)}
+                            placeholder="MBA201A.1"
+                          />
+                          <input
+                            className={`course-card-title ${course.courseTitle !== originalCourse?.courseTitle ? 'edited' : ''}`}
+                            value={course.courseTitle || ''}
+                            onChange={(e) => handleCourseChange(idx, 'courseTitle', e.target.value)}
+                            placeholder="Course Title"
+                          />
+                        </div>
+                        <button
+                          className="btn-icon btn-icon-danger"
+                          onClick={() => handleRemoveCourse(idx)}
+                          title="Remove course"
+                          aria-label="Remove course"
+                        >
+                          <Icons.Trash />
+                        </button>
+                      </div>
+
+                      <div className="course-card-body">
+                        <div className="course-card-row">
+                          <div className="course-card-field">
+                            <label className="course-card-label">
+                              <Icons.MapPin />
+                              Location
+                            </label>
                             <input
-                              className={`course-input ${course.courseNo !== originalCourse?.courseNo ? 'edited' : ''}`}
-                              value={course.courseNo || ''}
-                              onChange={(e) => handleCourseChange(idx, 'courseNo', e.target.value)}
-                              placeholder="MBA201A.1"
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className={`course-input ${course.courseTitle !== originalCourse?.courseTitle ? 'edited' : ''}`}
-                              value={course.courseTitle || ''}
-                              onChange={(e) => handleCourseChange(idx, 'courseTitle', e.target.value)}
-                              placeholder="Course Title"
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className={`course-input ${course.location !== originalCourse?.location ? 'edited' : ''}`}
+                              className={`course-card-input ${course.location !== originalCourse?.location ? 'edited' : ''}`}
                               value={course.location || ''}
                               onChange={(e) => handleCourseChange(idx, 'location', e.target.value)}
                               placeholder="Room TBD"
                             />
-                          </td>
-                          <td>
+                          </div>
+                          <div className="course-card-field">
+                            <label className="course-card-label">
+                              <Icons.User />
+                              Instructor
+                            </label>
                             <input
-                              className={`course-input ${course.instructor !== originalCourse?.instructor ? 'edited' : ''}`}
+                              className={`course-card-input ${course.instructor !== originalCourse?.instructor ? 'edited' : ''}`}
                               value={course.instructor || ''}
                               onChange={(e) => handleCourseChange(idx, 'instructor', e.target.value)}
                               placeholder="Instructor Name"
                             />
-                          </td>
-                          <td>
-                            <input
-                              type="date"
-                              className={`course-input course-input-date ${course.startDate !== originalCourse?.startDate ? 'edited' : ''}`}
-                              value={course.startDate || ''}
-                              onChange={(e) => handleCourseChange(idx, 'startDate', e.target.value)}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="date"
-                              className={`course-input course-input-date ${course.endDate !== originalCourse?.endDate ? 'edited' : ''}`}
-                              value={course.endDate || ''}
-                              onChange={(e) => handleCourseChange(idx, 'endDate', e.target.value)}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className={`course-input course-input-time ${course.startTime !== originalCourse?.startTime ? 'edited' : ''}`}
-                              value={course.startTime || ''}
-                              onChange={(e) => handleCourseChange(idx, 'startTime', e.target.value)}
-                              placeholder="9:00 AM"
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className={`course-input course-input-time ${course.endTime !== originalCourse?.endTime ? 'edited' : ''}`}
-                              value={course.endTime || ''}
-                              onChange={(e) => handleCourseChange(idx, 'endTime', e.target.value)}
-                              placeholder="10:30 AM"
-                            />
-                          </td>
-                          <td>
+                          </div>
+                        </div>
+
+                        <div className="course-card-row">
+                          <div className="course-card-field">
+                            <label className="course-card-label">
+                              <Icons.Clock />
+                              Time
+                            </label>
+                            <div className="course-card-time-group">
+                              <input
+                                className={`course-card-input course-card-input-time ${course.startTime !== originalCourse?.startTime ? 'edited' : ''}`}
+                                value={course.startTime || ''}
+                                onChange={(e) => handleCourseChange(idx, 'startTime', e.target.value)}
+                                placeholder="9:00 AM"
+                              />
+                              <span className="course-card-time-separator">→</span>
+                              <input
+                                className={`course-card-input course-card-input-time ${course.endTime !== originalCourse?.endTime ? 'edited' : ''}`}
+                                value={course.endTime || ''}
+                                onChange={(e) => handleCourseChange(idx, 'endTime', e.target.value)}
+                                placeholder="10:30 AM"
+                              />
+                            </div>
+                          </div>
+                          <div className="course-card-field">
+                            <label className="course-card-label">
+                              <Icons.Calendar />
+                              Days
+                            </label>
                             <DaysMultiSelect
                               selectedDays={Array.isArray(course.days) ? course.days : (course.days ? [course.days] : [])}
                               onChange={(selectedDays) => handleCourseChange(idx, 'days', selectedDays)}
                             />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </div>
+                        </div>
+
+                        <div className="course-card-row">
+                          <div className="course-card-field">
+                            <label className="course-card-label">
+                              <Icons.Calendar />
+                              Start Date
+                            </label>
+                            <input
+                              type="date"
+                              className={`course-card-input course-card-input-date ${course.startDate !== originalCourse?.startDate ? 'edited' : ''}`}
+                              value={course.startDate || ''}
+                              onChange={(e) => handleCourseChange(idx, 'startDate', e.target.value)}
+                            />
+                          </div>
+                          <div className="course-card-field">
+                            <label className="course-card-label">
+                              <Icons.Calendar />
+                              End Date
+                            </label>
+                            <input
+                              type="date"
+                              className={`course-card-input course-card-input-date ${course.endDate !== originalCourse?.endDate ? 'edited' : ''}`}
+                              value={course.endDate || ''}
+                              onChange={(e) => handleCourseChange(idx, 'endDate', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ marginTop: 'var(--space-xl)', textAlign: 'center' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleAddCourse}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-sm)' }}
+                >
+                  <Icons.Plus />
+                  Add Course
+                </button>
               </div>
 
               {error && (
@@ -820,108 +892,34 @@ export default function App() {
                   <Icons.Check />
         </div>
                 <h2 className="success-title">
-                  {addResult?.success ? 'Events Added!' : 'Events Created'}
+                  Thank you for adding your calendar!
                 </h2>
                 <p className="success-text">
                   {addResult?.totalCreated 
-                    ? `Successfully added ${addResult.totalCreated} events to your Google Calendar`
-                    : `${calendarEvents.length} calendar events are ready`
+                    ? `Successfully added ${addResult.totalCreated} events to your Google Calendar.`
+                    : `Your calendar events have been created.`
                   }
                 </p>
                 {addResult?.totalFailed > 0 && (
                   <p className="success-warning">
-                    {addResult.totalFailed} events could not be added
+                    Note: {addResult.totalFailed} events could not be added
                   </p>
                 )}
+                {addResult?.calendarUrl && addResult?.totalCreated > 0 && (
+                  <div className="success-action">
+                    <a
+                      href={addResult.calendarUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary btn-lg"
+                    >
+                      <Icons.Calendar />
+                      View Calendar
+                      <Icons.ExternalLink />
+                    </a>
+                  </div>
+                )}
       </div>
-
-              <div className="divider">Your Events</div>
-
-              <div className="events-grid">
-                {calendarEvents.map((event) => (
-                  <div key={event.id} className="event-card">
-                    <div className="event-info">
-                      <span className="event-code">{event.courseNo}</span>
-                      <h3 className="event-title">{event.title}</h3>
-                      <div className="event-details">
-                        <span className="event-detail">
-                          <Icons.User />
-                          {event.instructor}
-                        </span>
-                        <span className="event-detail">
-                          <Icons.Clock />
-                          {event.day}s, {event.startTime} - {event.endTime}
-                        </span>
-                        <span className="event-detail">
-                          <Icons.MapPin />
-                          {event.location}
-                        </span>
-      </div>
-      </div>
-    </div>
-                ))}
-              </div>
-
-              {(addResult?.totalFailed > 0 || !addResult?.success) && (
-                <div className="download-section">
-                  <h3 className="download-title">Having issues?</h3>
-                  <p className="download-text">
-                    Download an ICS file as a backup option for other calendar apps
-                  </p>
-                  <button 
-                    className="btn btn-secondary"
-                    onClick={async () => {
-                      try {
-                        // Get ICS file from backend
-                        const icsResponse = await fetch(`${API_URL}/api/calendar/ics`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ courses: courses })
-                        });
-                        
-                        if (!icsResponse.ok) {
-                          throw new Error('Failed to generate ICS file');
-                        }
-                        
-                        const blob = await icsResponse.blob();
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = 'haas_schedule.ics';
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                      } catch (err) {
-                        console.error('Failed to download ICS file:', err);
-                        setError('Failed to download ICS file. Please try again.');
-                      }
-                    }}
-                  >
-                    <Icons.Download />
-                    Download .ICS File
-                  </button>
-                </div>
-              )}
-
-              <div className="action-bar">
-                <button className="btn btn-secondary" onClick={() => setStep(3)}>
-                  <Icons.ArrowLeft />
-                  Back to Review
-                </button>
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => {
-                    setCourses([]);
-                    setOriginalCourses([]);
-                    setCalendarEvents([]);
-                    setAddResult(null);
-                    setStep(2);
-                  }}
-                >
-                  Add More Courses
-                </button>
-        </div>
         </div>
           )}
       </div>

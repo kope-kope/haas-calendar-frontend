@@ -387,7 +387,48 @@
   width: 100%;
 }
 
-/* Button Icon */
+/* Icon Button Styles */
+button.btn-icon {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+button.btn-icon:hover {
+  background: var(--bg-accent);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text-primary);
+}
+
+button.btn-icon-danger {
+  color: var(--error);
+  border-color: var(--error-light);
+  background: var(--error-light);
+}
+
+button.btn-icon-danger:hover {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+}
+
+button.btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Button Icon (for icons inside buttons) */
 .btn-icon {
   width: 18px;
   height: 18px;
@@ -608,6 +649,238 @@
   font-family: inherit;
 }
 
+/* ============================================
+   Option 1: Card Grid Layout Styles
+   ============================================ */
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.course-card {
+  background: var(--bg-secondary);
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+.course-card:hover {
+  border-color: var(--accent-gold);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.course-card-edited {
+  border-color: var(--warning);
+  background: var(--warning-light);
+}
+
+.course-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.course-card-title-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.course-card-code {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: white;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  width: 100%;
+}
+
+.course-card-code:hover {
+  border-color: var(--accent-gold);
+  background: var(--bg-accent);
+}
+
+.course-card-code:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px var(--accent-gold-light);
+}
+
+.course-card-code.edited {
+  background: var(--warning-light);
+  border-color: var(--warning);
+}
+
+.course-card-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: white;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  width: 100%;
+}
+
+.course-card-title:hover {
+  border-color: var(--accent-gold);
+  background: var(--bg-accent);
+}
+
+.course-card-title:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px var(--accent-gold-light);
+}
+
+.course-card-title.edited {
+  background: var(--warning-light);
+  border-color: var(--warning);
+}
+
+.course-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.course-card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.course-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.course-card-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.course-card-label svg {
+  width: 14px;
+  height: 14px;
+}
+
+.course-card-input {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  background: white;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  width: 100%;
+}
+
+.course-card-input:hover {
+  border-color: var(--accent-gold);
+  background: var(--bg-accent);
+}
+
+.course-card-input:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px var(--accent-gold-light);
+}
+
+.course-card-input.edited {
+  background: var(--warning-light);
+  border-color: var(--warning);
+}
+
+.course-card-time-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.course-card-time-separator {
+  color: var(--text-muted);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.course-card-input-time {
+  flex: 1;
+}
+
+.course-card-input-date {
+  cursor: pointer;
+}
+
+/* DaysMultiSelect within card context */
+.course-card-field .days-multiselect {
+  width: 100%;
+}
+
+.course-card-field .days-multiselect-trigger {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  background: white;
+  transition: all var(--transition-fast);
+  min-height: auto;
+}
+
+.course-card-field .days-multiselect-trigger:hover {
+  border-color: var(--accent-gold);
+  background: var(--bg-accent);
+}
+
+.course-card-field .days-multiselect-trigger:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+  background: white;
+  box-shadow: 0 0 0 3px var(--accent-gold-light);
+}
+
+/* Responsive adjustments for card grid */
+@media (max-width: 768px) {
+  .courses-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .course-card-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1400px) {
+  .courses-grid {
+    grid-template-columns: repeat(auto-fill, minmax(550px, 1fr));
+  }
+}
+
 /* Days Multi-Select */
 .days-multiselect {
   position: relative;
@@ -797,6 +1070,24 @@
   color: var(--warning);
   font-size: 0.875rem;
   margin-top: var(--space-sm);
+}
+
+.success-action {
+  margin-top: var(--space-lg);
+  text-align: center;
+}
+
+.success-action .btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.success-action .btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* Loading State */
