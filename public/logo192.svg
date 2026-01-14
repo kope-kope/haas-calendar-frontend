@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <!-- Oski Bear - Fun and Friendly -->
+  <defs>
+    <linearGradient id="bearGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B4513;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#654321;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C4A052;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="90" fill="#FAFAFA" />
+  
+  <!-- Bear Head -->
+  <ellipse cx="96" cy="86" rx="67" ry="61" fill="url(#bearGradient)" />
+  
+  <!-- Bear Ears -->
+  <ellipse cx="58" cy="48" rx="23" ry="23" fill="url(#bearGradient)" />
+  <ellipse cx="134" cy="48" rx="23" ry="23" fill="url(#bearGradient)" />
+  <ellipse cx="58" cy="48" rx="13" ry="13" fill="#654321" />
+  <ellipse cx="134" cy="48" rx="13" ry="13" fill="#654321" />
+  
+  <!-- Bear Eyes -->
+  <circle cx="81" cy="81" r="8" fill="#000" />
+  <circle cx="111" cy="81" r="8" fill="#000" />
+  <circle cx="81" cy="81" r="3" fill="#FFF" />
+  <circle cx="111" cy="81" r="3" fill="#FFF" />
+  
+  <!-- Bear Nose -->
+  <ellipse cx="96" cy="100" rx="10" ry="8" fill="#000" />
+  
+  <!-- Bear Mouth -->
+  <path d="M 96 100 Q 86 111 77 107" stroke="#000" stroke-width="4" fill="none" stroke-linecap="round" />
+  <path d="M 96 100 Q 106 111 115 107" stroke="#000" stroke-width="4" fill="none" stroke-linecap="round" />
+  
+  <!-- Berkeley Gold "C" on chest -->
+  <path d="M 96 125 Q 86 125 81 131 Q 77 135 81 138 Q 86 144 96 144" stroke="url(#goldGradient)" stroke-width="5" fill="none" stroke-linecap="round" />
+</svg>

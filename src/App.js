@@ -816,6 +816,16 @@ export default function App() {
                   <Icons.Plus />
                   Add Course
                 </button>
+                <p style={{ 
+                  marginTop: 'var(--space-md)', 
+                  fontSize: '0.875rem', 
+                  color: 'var(--text-secondary)',
+                  maxWidth: '500px',
+                  marginLeft: 'auto',
+                  marginRight: 'auto'
+                }}>
+                  Taking classes outside of Haas? You can add them manually using the button above.
+                </p>
               </div>
 
               {error && (
@@ -867,6 +877,9 @@ export default function App() {
                     ? `Successfully added ${addResult.totalCreated} events to your Google Calendar.`
                     : `Your calendar events have been created.`
                   }
+                </p>
+                <p className="success-text" style={{ marginTop: 'var(--space-sm)', fontSize: '0.9375rem' }}>
+                  Your calendar has been created and is titled <strong>"Spring 2026 Schedule"</strong>.
                 </p>
                 {addResult?.totalFailed > 0 && (
                   <p className="success-warning">
