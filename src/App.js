@@ -72,6 +72,13 @@ const Icons = {
       <line x1="12" y1="16" x2="12.01" y2="16" />
     </svg>
   ),
+  AlertTriangle: () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
   Loader: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spin">
       <line x1="12" y1="2" x2="12" y2="6" />
@@ -201,6 +208,10 @@ export default function App() {
   // Result state
   const [addResult, setAddResult] = useState(null);
   
+  // Confirmation modal state
+  const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
+  const [existingSchedule, setExistingSchedule] = useState(null);
+  
   // UI state
   const [loading, setLoading] = useState(false);
   const [addingToCalendar, setAddingToCalendar] = useState(false);
@@ -217,6 +228,7 @@ export default function App() {
     
     if (authStatus === 'success' && emailParam) {
       setUserEmail(emailParam);
+      localStorage.setItem('userEmail', emailParam); // Persist email
       setIsCalendarConnected(true);
       setStep(2); // Go to upload step after successful auth
       // Clean up URL
@@ -236,11 +248,32 @@ export default function App() {
       const response = await fetch(`${API_URL}/api/auth/status?email=${encodeURIComponent(email)}`);
       const data = await response.json();
       setIsCalendarConnected(data.connected && data.hasValidToken);
+      // Update email from response if we got it back (might be different if from Google)
+      if (data.email && data.email !== email) {
+        setUserEmail(data.email);
+      }
     } catch (err) {
       console.error('Failed to check calendar connection:', err);
       setIsCalendarConnected(false);
     }
   }, []);
+
+  // Try to get email from localStorage on mount
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) {
+      setUserEmail(storedEmail);
+      console.log('📧 Loaded email from localStorage:', storedEmail);
+    }
+  }, []);
+
+  // Save email to localStorage when it changes
+  useEffect(() => {
+    if (userEmail) {
+      localStorage.setItem('userEmail', userEmail);
+      console.log('📧 Saved email to localStorage:', userEmail);
+    }
+  }, [userEmail]);
 
   useEffect(() => {
     if (userEmail) {
@@ -287,12 +320,70 @@ export default function App() {
     }
     setIsCalendarConnected(false);
     setUserEmail('');
+    localStorage.removeItem('userEmail'); // Remove from localStorage on disconnect
     setStep(1);
   }, [userEmail]);
+
+  // Check for existing schedule
+  const checkExistingSchedule = useCallback(async () => {
+    if (!userEmail) return null;
+    
+    try {
+      console.log('Checking for existing schedule for:', userEmail);
+      const response = await fetch(`${API_URL}/api/calendar/check-existing?email=${encodeURIComponent(userEmail)}`);
+      const data = await response.json();
+      
+      console.log('Existing schedule check result:', data);
+      
+      if (data.success && data.hasExistingSchedule) {
+        setExistingSchedule(data);
+        return data;
+      }
+      
+      setExistingSchedule(null);
+      return null;
+    } catch (err) {
+      console.error('Failed to check existing schedule:', err);
+      setExistingSchedule(null);
+      return null;
+    }
+  }, [userEmail]);
+
+  // Compute schedule diff: what will change
+  const computeScheduleDiff = useCallback((existingCourses, newCourses) => {
+    const existingSet = new Set(existingCourses || []);
+    const newSet = new Set(newCourses.map(c => c.courseNo).filter(Boolean));
+    
+    const toAdd = [...newSet].filter(c => !existingSet.has(c));
+    const toRemove = [...existingSet].filter(c => !newSet.has(c));
+    const unchanged = [...newSet].filter(c => existingSet.has(c));
+    
+    return {
+      toAdd,
+      toRemove,
+      unchanged,
+      hasChanges: toAdd.length > 0 || toRemove.length > 0
+    };
+  }, []);
 
   // File upload handling with real OCR
   const processFile = useCallback(async (file) => {
     if (!file) return;
+    
+    // Debug: Log current state
+    console.log('📤 processFile called - userEmail state:', userEmail);
+    console.log('📤 isCalendarConnected:', isCalendarConnected);
+    
+    // Try to get email from localStorage as fallback
+    const storedEmail = localStorage.getItem('userEmail');
+    const emailToUse = userEmail || storedEmail;
+    
+    console.log('📤 Email to use:', emailToUse || 'NOT FOUND');
+    
+    // Warn if email is not set (but allow upload to continue)
+    if (!emailToUse) {
+      console.warn('⚠ Email not set - extraction history will not be saved. Please enter your email first or reconnect Google Calendar.');
+    }
     
     setLoading(true);
     setError('');
@@ -300,6 +391,20 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append('image', file);
+      // Include email for tracking extraction history (required for saving history)
+      if (emailToUse) {
+        formData.append('email', emailToUse);
+        console.log('📧 Sending email with extraction request:', emailToUse);
+        // Update state if we used stored email
+        if (!userEmail && storedEmail) {
+          setUserEmail(storedEmail);
+        }
+      } else {
+        console.warn('⚠ No email provided - extraction history will not be saved');
+      }
+      
+      // Debug: Log FormData contents (email field won't show, but we can verify)
+      console.log('📤 FormData prepared - email field added:', !!emailToUse);
       
       const response = await fetch(`${API_URL}/api/extract-table`, {
         method: 'POST',
@@ -389,12 +494,28 @@ export default function App() {
   };
 
   // Add events to Google Calendar via API
-  const handleAddToCalendar = async () => {
+  const handleAddToCalendar = async (skipConfirmation = false) => {
+    console.log('handleAddToCalendar called, skipConfirmation:', skipConfirmation);
+    
     if (!isCalendarConnected) {
       setError('Please connect your Google Calendar first');
-          return;
-        }
-        
+      return;
+    }
+    
+    // Check for existing schedule first (unless we're skipping confirmation)
+    if (!skipConfirmation) {
+      console.log('Checking for existing schedule...');
+      const existing = await checkExistingSchedule();
+      console.log('Existing schedule result:', existing);
+      
+      if (existing && existing.hasExistingSchedule) {
+        console.log('Showing confirmation modal');
+        setShowUpdateConfirmation(true);
+        return;
+      }
+    }
+    
+    console.log('Proceeding to add events to calendar');
     setAddingToCalendar(true);
     setError('');
     setAddResult(null);
@@ -424,14 +545,150 @@ export default function App() {
       setError(err.message || 'Failed to add events to Google Calendar. Please try again.');
     } finally {
       setAddingToCalendar(false);
+      setShowUpdateConfirmation(false);
     }
+  };
+
+  const handleConfirmUpdate = () => {
+    // Close modal immediately to prevent double-clicks
+    setShowUpdateConfirmation(false);
+    // Proceed with adding to calendar, skipping the confirmation check
+    handleAddToCalendar(true);
+  };
+
+  const handleCancelUpdate = () => {
+    setShowUpdateConfirmation(false);
   };
 
   // Calculate progress
   const progress = ((step - 1) / 3) * 100;
 
+  // Confirmation Modal Component
+  const ConfirmationModal = () => {
+    // Close modal on Escape key press
+    useEffect(() => {
+      if (!showUpdateConfirmation) return;
+      
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          setShowUpdateConfirmation(false);
+        }
+      };
+      
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }, [showUpdateConfirmation]);
+
+    if (!showUpdateConfirmation) return null;
+
+    // Compute the diff between existing and new schedule
+    const diff = computeScheduleDiff(
+      existingSchedule?.courses || [],
+      courses
+    );
+
+    return (
+      <div className="modal-overlay" onClick={addingToCalendar ? undefined : handleCancelUpdate}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-icon warning">
+            <Icons.AlertTriangle />
+          </div>
+          <h2 className="modal-title">Update Schedule?</h2>
+          <p className="modal-text">
+            We found an existing schedule with <strong>{existingSchedule?.courseCount || 0} courses</strong>.
+            {diff.hasChanges ? ' Here\'s what will change:' : ' Your new schedule is identical.'}
+          </p>
+
+          {diff.hasChanges && (
+            <div className="modal-diff">
+              {diff.toAdd.length > 0 && (
+                <div className="modal-diff-section">
+                  <div className="modal-diff-header add">
+                    ➕ <strong>{diff.toAdd.length} course{diff.toAdd.length !== 1 ? 's' : ''} to add</strong>
+                  </div>
+                  <div className="modal-courses">
+                    {diff.toAdd.slice(0, 5).map((courseNo, idx) => (
+                      <span key={idx} className="modal-course-badge add">{courseNo}</span>
+                    ))}
+                    {diff.toAdd.length > 5 && (
+                      <span className="modal-course-badge add">+{diff.toAdd.length - 5} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {diff.toRemove.length > 0 && (
+                <div className="modal-diff-section">
+                  <div className="modal-diff-header remove">
+                    🗑️ <strong>{diff.toRemove.length} course{diff.toRemove.length !== 1 ? 's' : ''} to remove</strong>
+                  </div>
+                  <div className="modal-courses">
+                    {diff.toRemove.slice(0, 5).map((courseNo, idx) => (
+                      <span key={idx} className="modal-course-badge remove">{courseNo}</span>
+                    ))}
+                    {diff.toRemove.length > 5 && (
+                      <span className="modal-course-badge remove">+{diff.toRemove.length - 5} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {diff.unchanged.length > 0 && (
+                <div className="modal-diff-section">
+                  <div className="modal-diff-header unchanged">
+                    ✓ <strong>{diff.unchanged.length} unchanged course{diff.unchanged.length !== 1 ? 's' : ''}</strong>
+                  </div>
+                  <div className="modal-courses">
+                    {diff.unchanged.slice(0, 3).map((courseNo, idx) => (
+                      <span key={idx} className="modal-course-badge unchanged">{courseNo}</span>
+                    ))}
+                    {diff.unchanged.length > 3 && (
+                      <span className="modal-course-badge unchanged">+{diff.unchanged.length - 3} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!diff.hasChanges && (
+            <p className="modal-text modal-no-changes">
+              ℹ️ Your new schedule is identical to the existing one. No changes will be made.
+            </p>
+          )}
+
+          <div className="modal-actions">
+            <button 
+              className="btn btn-secondary" 
+              onClick={handleCancelUpdate}
+              disabled={addingToCalendar}
+            >
+              Cancel
+            </button>
+            <button 
+              className="btn btn-gold" 
+              onClick={handleConfirmUpdate}
+              disabled={addingToCalendar}
+            >
+              {addingToCalendar ? (
+                <>
+                  <Icons.Loader className="spin" />
+                  <span>Updating...</span>
+                </>
+              ) : (
+                diff.hasChanges ? 'Continue & Update' : 'Sync Anyway'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="app">
+      <ConfirmationModal />
+      
       {/* Navigation */}
       <nav className="nav">
         <div className="nav-content">
@@ -842,7 +1099,7 @@ export default function App() {
                 </button>
                 <button 
                   className="btn btn-gold btn-lg" 
-                  onClick={handleAddToCalendar}
+                  onClick={() => handleAddToCalendar()}
                   disabled={addingToCalendar || courses.length === 0}
                 >
                   {addingToCalendar ? (
