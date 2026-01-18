@@ -438,7 +438,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isCalendarConnected, userEmail]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -577,7 +577,7 @@ export default function App() {
       
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
-    }, [showUpdateConfirmation]);
+    }, []); // showUpdateConfirmation is checked at the start of useEffect
 
     if (!showUpdateConfirmation) return null;
 
